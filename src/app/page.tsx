@@ -7,6 +7,9 @@ import {
   Calendar,
   ChevronLeft,
   ChevronRight,
+  ChevronDown,
+  ChevronUp,
+  RotateCcw,
   Flame,
   UtensilsCrossed,
   Settings,
@@ -177,6 +180,7 @@ function DayColumn({
   onUpdateSelections: (date: Date, selections: MealSelection[]) => void;
 }) {
   const [selectedDish, setSelectedDish] = useState<Dish | null>(null);
+  const [expandedMeals, setExpandedMeals] = useState<Record<string, boolean>>({});
   const isPast = isBefore(day, new Date()) && !isToday(day);
   const isLocked = isPast || (dayPlan?.isLocked ?? false);
   const selections = dayPlan?.selections || [];
@@ -184,17 +188,28 @@ function DayColumn({
   const getSelectedDishForMeal = (meal: string) =>
     selections.find((s) => s.meal === meal);
 
+  const toggleMealList = (meal: string, currentState: boolean) => {
+    setExpandedMeals((prev) => ({
+      ...prev,
+      [meal]: !currentState,
+    }));
+  };
+
   const handleToggleDish = (meal: string, dish: Dish) => {
     if (isLocked) return;
     const existing = getSelectedDishForMeal(meal);
     let newSelections: MealSelection[];
     if (existing?.dishId === dish._id) {
       newSelections = selections.filter((s) => s.meal !== meal);
+      // Khi bỏ chọn món thì mở lại danh sách để người dùng chọn món khác
+      setExpandedMeals((prev) => ({ ...prev, [meal]: true }));
     } else {
       newSelections = [
         ...selections.filter((s) => s.meal !== meal),
         { meal, dishId: dish._id, dishName: dish.name },
       ];
+      // Sau khi chọn xong món thì tự động đóng danh sách lại cho gọn
+      setExpandedMeals((prev) => ({ ...prev, [meal]: false }));
     }
     onUpdateSelections(day, newSelections);
   };
@@ -214,10 +229,7 @@ function DayColumn({
         style={isToday(day) ? { borderColor: 'rgba(34,211,238,0.6)', background: 'rgba(34,211,238,0.1)' } : {}}
       >
         <div className="text-xs text-slate-400 mb-1">{DAY_LABELS[day.getDay()]}</div>
-        <div className={`text-lg font-bold ${isToday(day) ? 'text-cyan-400' : 'text-white'}`}>
-          {format(day, 'd')}
-        </div>
-        <div className="text-xs text-slate-500">{format(day, 'MM/yyyy')}</div>
+        <div className="text-xs text-slate-500">{format(day, 'dd/MM/yyyy')}</div>
         {isLocked && !isToday(day) && (
           <div className="mt-1 flex items-center justify-center gap-1 text-xs text-slate-500">
             <Lock size={10} /> Đã khóa
@@ -246,48 +258,104 @@ function DayColumn({
         const selected = getSelectedDishForMeal(meal);
         const selectedDishObj = mealDishes.find((d) => d._id === selected?.dishId);
         const targetCal = MEAL_CALORIES[dietType]?.[meal] || 0;
+        const isExpanded = expandedMeals[meal] ?? !selectedDishObj;
 
         return (
           <div key={meal} className={`glass-card p-3 border meal-${meal}`}>
-            <div className={`text-xs font-semibold mb-2 meal-${meal}`}>{MEAL_LABELS[meal]}</div>
-            <div className="text-xs text-slate-500 mb-2">{targetCal} kcal</div>
+            <div className="flex items-center justify-between mb-2">
+              <div className={`text-xs font-semibold meal-${meal}`}>{MEAL_LABELS[meal]}</div>
+              <div className="text-xs text-slate-400 font-medium">{targetCal} kcal</div>
+            </div>
 
             {selectedDishObj ? (
-              <div
-                className="dish-card selected rounded-lg p-2 mb-2"
-                style={{ border: '1px solid rgba(34,211,238,0.5)', background: 'rgba(34,211,238,0.08)' }}
-                onClick={() => !isLocked && setSelectedDish(selectedDishObj)}
-              >
-                <div className="flex items-start justify-between gap-1">
-                  <span className="text-xs text-white font-medium leading-tight">{selectedDishObj.name}</span>
-                  <Check size={12} className="text-cyan-400 shrink-0 mt-0.5" />
+              <div className="mb-2">
+                <div
+                  className="dish-card selected rounded-lg p-2 transition-all cursor-pointer hover:border-cyan-400/60"
+                  style={{ border: '1px solid rgba(34,211,238,0.5)', background: 'rgba(34,211,238,0.08)' }}
+                  onClick={() => setSelectedDish(selectedDishObj)}
+                  title="Bấm để xem chi tiết"
+                >
+                  <div className="flex items-start justify-between gap-1">
+                    <span className="text-xs text-white font-medium leading-tight">{selectedDishObj.name}</span>
+                    <Check size={12} className="text-cyan-400 shrink-0 mt-0.5" />
+                  </div>
+                  <div className="flex items-center justify-between text-xs mt-1">
+                    <span className="text-orange-400 font-medium">{selectedDishObj.calories} kcal</span>
+                    <span className="text-[10px] text-slate-400 hover:text-cyan-300 flex items-center gap-0.5">
+                      <Info size={10} /> Chi tiết
+                    </span>
+                  </div>
                 </div>
-                <div className="text-xs text-orange-400 mt-1">{selectedDishObj.calories} kcal</div>
+
+                {!isLocked && (
+                  <div className="mt-1.5 flex items-center justify-between">
+                    <button
+                      type="button"
+                      onClick={() => toggleMealList(meal, isExpanded)}
+                      className="text-[11px] font-medium text-cyan-400 hover:text-cyan-300 flex items-center gap-1 px-1.5 py-0.5 rounded hover:bg-cyan-400/10 transition-colors"
+                    >
+                      {isExpanded ? (
+                        <>
+                          <ChevronUp size={12} /> Thu gọn danh sách
+                        </>
+                      ) : (
+                        <>
+                          <RotateCcw size={11} /> Chọn lại
+                        </>
+                      )}
+                    </button>
+                    <span className="text-[10px] text-slate-500">
+                      {mealDishes.length} món
+                    </span>
+                  </div>
+                )}
               </div>
             ) : (
-              <div className="text-xs text-slate-500 italic mb-2">Chưa chọn món</div>
+              <div className="mb-2">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-slate-500 italic">Chưa chọn món</span>
+                  {!isLocked && mealDishes.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => toggleMealList(meal, isExpanded)}
+                      className="text-[11px] text-cyan-400 hover:text-cyan-300 flex items-center gap-0.5"
+                    >
+                      {isExpanded ? (
+                        <>
+                          <ChevronUp size={12} /> Đóng
+                        </>
+                      ) : (
+                        <>
+                          <ChevronDown size={12} /> Chọn món ({mealDishes.length})
+                        </>
+                      )}
+                    </button>
+                  )}
+                </div>
+              </div>
             )}
 
-            {!isLocked && (
-              <div className="space-y-1 max-h-40 overflow-y-auto pr-1">
+            {!isLocked && isExpanded && (
+              <div className="space-y-1 max-h-40 overflow-y-auto pr-1 animate-fade-in pt-1 border-t border-white/5">
                 {mealDishes.map((dish) => {
                   const isSel = selected?.dishId === dish._id;
                   return (
                     <div
                       key={dish._id}
                       onClick={() => handleToggleDish(meal, dish)}
-                      className={`dish-card rounded-lg p-2 border text-xs transition-all ${isSel
-                          ? 'selected border-cyan-500/50'
-                          : 'border-white/10 hover:border-white/20'
+                      className={`dish-card rounded-lg p-2 border text-xs transition-all cursor-pointer ${isSel
+                        ? 'selected border-cyan-500/50'
+                        : 'border-white/10 hover:border-white/20'
                         }`}
                       style={{ background: isSel ? 'rgba(34,211,238,0.08)' : 'rgba(255,255,255,0.02)' }}
                     >
                       <div className="flex items-center justify-between gap-1">
-                        <span className={`${isSel ? 'text-cyan-300' : 'text-slate-300'} leading-tight`}>{dish.name}</span>
+                        <span className={`${isSel ? 'text-cyan-300 font-medium' : 'text-slate-300'} leading-tight`}>{dish.name}</span>
                         <div className="flex items-center gap-1 shrink-0">
                           <button
                             onClick={(e) => { e.stopPropagation(); setSelectedDish(dish); }}
                             className="p-0.5 rounded hover:bg-white/10 text-slate-400 hover:text-white transition-colors"
+                            title="Xem chi tiết"
                           >
                             <Info size={10} />
                           </button>
@@ -459,8 +527,8 @@ export default function HomePage() {
                   key={type}
                   onClick={() => setDietType(type)}
                   className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${dietType === type
-                      ? 'text-white'
-                      : 'text-slate-400 hover:text-white'
+                    ? 'text-white'
+                    : 'text-slate-400 hover:text-white'
                     }`}
                   style={dietType === type ? { background: 'linear-gradient(135deg, #22d3ee, #0891b2)' } : {}}
                 >
@@ -496,7 +564,7 @@ export default function HomePage() {
             { label: 'Chế độ', value: dietType, icon: Star, color: '#22d3ee' },
             { label: 'Tuần hiện tại', value: weekKey, icon: Calendar, color: '#a855f7' },
             { label: 'Bữa đã chọn', value: `${totalSelections} bữa`, icon: Check, color: '#10b981' },
-            { label: 'Món trong DB', value: `${Object.values(dishes).flat().length} món`, icon: UtensilsCrossed, color: '#f59e0b' },
+            { label: 'Món ăn', value: `${Object.values(dishes).flat().length} món`, icon: UtensilsCrossed, color: '#f59e0b' },
           ].map(({ label, value, icon: Icon, color }) => (
             <div key={label} className="glass-card p-4">
               <div className="flex items-center gap-3">
@@ -876,8 +944,8 @@ function AdminView({
               key={meal}
               onClick={() => setActiveTab(meal)}
               className={`px-5 py-4 text-sm font-medium whitespace-nowrap transition-all border-b-2 ${activeTab === meal
-                  ? 'border-cyan-400 text-cyan-400'
-                  : 'border-transparent text-slate-400 hover:text-white'
+                ? 'border-cyan-400 text-cyan-400'
+                : 'border-transparent text-slate-400 hover:text-white'
                 }`}
             >
               {MEAL_LABELS[meal]}
