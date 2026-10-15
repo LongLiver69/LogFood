@@ -17,30 +17,36 @@ export async function GET(request: NextRequest) {
 
     await dbConnect();
     // Chỉ lấy người dùng thông thường, không bao gồm admin
-    const users = await User.find({ role: 'user' }).sort({ createdAt: -1 }).select('-password');
+    const users = await User.find({ role: 'user' }).sort({ createdAt: -1 }).select('-password').lean();
 
-    // Get count of day plans for each user
-    const usersWithStats = await Promise.all(
-      users.map(async (u) => {
-        const planCount = await DayPlan.countDocuments({ userId: u._id.toString() });
-        const bmiInfo = calculateBMI(u.weight, u.height);
-        return {
-          _id: u._id,
-          email: u.email,
-          fullName: u.fullName,
-          role: u.role,
-          height: u.height,
-          weight: u.weight,
-          targetWeight: u.targetWeight,
-          gender: u.gender,
-          age: u.age,
-          dietPreference: u.dietPreference,
-          planCount,
-          bmiInfo,
-          createdAt: u.createdAt,
-        };
-      })
-    );
+    // Lấy số lượng thực đơn của tất cả người dùng trong 1 truy vấn tổng hợp duy nhất (tránh N+1)
+    const userIds = users.map((u) => u._id.toString());
+    const planCounts = await DayPlan.aggregate<{ _id: string; count: number }>([
+      { $match: { userId: { $in: userIds } } },
+      { $group: { _id: '$userId', count: { $sum: 1 } } },
+    ]);
+
+    const countMap = new Map<string, number>(planCounts.map((item) => [item._id, item.count]));
+
+    const usersWithStats = users.map((u) => {
+      const planCount = countMap.get(u._id.toString()) || 0;
+      const bmiInfo = calculateBMI(u.weight, u.height);
+      return {
+        _id: u._id,
+        email: u.email,
+        fullName: u.fullName,
+        role: u.role,
+        height: u.height,
+        weight: u.weight,
+        targetWeight: u.targetWeight,
+        gender: u.gender,
+        age: u.age,
+        dietPreference: u.dietPreference,
+        planCount,
+        bmiInfo,
+        createdAt: u.createdAt,
+      };
+    });
 
     return NextResponse.json({ success: true, data: usersWithStats });
   } catch (error) {

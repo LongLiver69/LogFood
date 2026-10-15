@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { startOfWeek, addDays, getWeek, getYear, format } from 'date-fns';
@@ -41,6 +41,10 @@ export default function HomePage() {
   const [isSaving, setIsSaving] = useState(false);
   const [saveMessage, setSaveMessage] = useState('');
 
+  // Bộ nhớ đệm Client-side để chuyển tuần và chuyển chế độ ăn tức thì (0ms)
+  const dishesCacheRef = useRef<Record<string, Record<string, Dish[]>>>({});
+  const dayPlansCacheRef = useRef<Record<string, DayPlan[]>>({});
+
   // Set week start on client
   useEffect(() => {
     setCurrentWeekStart(startOfWeek(new Date(), { weekStartsOn: 1 }));
@@ -80,9 +84,15 @@ export default function HomePage() {
     }
   }, [currentUser, router]);
 
-  // Load dishes for current diet type (only if regular user logged in)
+  // Load dishes for current diet type with client-side caching
   const loadDishes = useCallback(async () => {
     if (!currentUser || currentUser.role === 'admin') return;
+
+    if (dishesCacheRef.current[dietType]) {
+      setDishes(dishesCacheRef.current[dietType]);
+      return;
+    }
+
     try {
       const res = await fetch(`/api/dishes?dietType=${dietType}`);
       const data = await res.json();
@@ -92,6 +102,7 @@ export default function HomePage() {
           if (!grouped[d.meal]) grouped[d.meal] = [];
           grouped[d.meal].push(d);
         });
+        dishesCacheRef.current[dietType] = grouped;
         setDishes(grouped);
       }
     } catch (err) {
@@ -99,26 +110,45 @@ export default function HomePage() {
     }
   }, [dietType, currentUser]);
 
-  // Load day plans for current week & current regular user
-  const loadDayPlans = useCallback(async () => {
+  // Load dishes only when dietType or currentUser changes
+  useEffect(() => {
+    if (currentUser && currentUser.role !== 'admin') {
+      loadDishes();
+    }
+  }, [currentUser, dietType, loadDishes]);
+
+  // Load day plans for current week & current regular user with client-side caching
+  const loadDayPlans = useCallback(async (forceRefresh = false) => {
     if (!currentUser || currentUser.role === 'admin' || !weekKey) return;
+    const cacheKey = `${currentUser._id}_${weekKey}`;
+
+    if (!forceRefresh && dayPlansCacheRef.current[cacheKey]) {
+      setDayPlans(dayPlansCacheRef.current[cacheKey]);
+      setIsLoading(false);
+      return;
+    }
+
     try {
+      setIsLoading(true);
       const res = await fetch(`/api/dayplans?userId=${currentUser._id}&weekKey=${weekKey}`);
       const data = await res.json();
       if (data.success) {
+        dayPlansCacheRef.current[cacheKey] = data.data;
         setDayPlans(data.data);
       }
     } catch (err) {
       console.error('Failed to load day plans', err);
+    } finally {
+      setIsLoading(false);
     }
   }, [weekKey, currentUser]);
 
+  // Load day plans only when weekKey or currentUser changes
   useEffect(() => {
     if (currentUser && currentUser.role !== 'admin') {
-      setIsLoading(true);
-      Promise.all([loadDishes(), loadDayPlans()]).finally(() => setIsLoading(false));
+      loadDayPlans();
     }
-  }, [currentUser, loadDishes, loadDayPlans]);
+  }, [currentUser, weekKey, loadDayPlans]);
 
   // Handle dish selection in day
   const handleUpdateSelections = async (date: Date, selections: MealSelection[]) => {
@@ -145,7 +175,7 @@ export default function HomePage() {
       });
       const data = await res.json();
       if (data.success) {
-        await loadDayPlans();
+        await loadDayPlans(true);
         setSaveMessage('Đã lưu thực đơn!');
         setTimeout(() => setSaveMessage(''), 2000);
       } else {
@@ -161,6 +191,8 @@ export default function HomePage() {
   const handleLogout = async () => {
     try {
       await fetch('/api/auth/logout', { method: 'POST' });
+      dishesCacheRef.current = {};
+      dayPlansCacheRef.current = {};
       setCurrentUser(null);
       setDayPlans([]);
       setDishes({});

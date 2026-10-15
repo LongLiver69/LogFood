@@ -17,8 +17,15 @@ export async function GET(request: NextRequest) {
     const filter: Record<string, string> = { dietType };
     if (meal) filter.meal = meal;
 
-    const dishes = await Dish.find(filter).sort({ name: 1 });
-    return NextResponse.json({ success: true, data: dishes });
+    const dishes = await Dish.find(filter).sort({ name: 1 }).lean();
+    return NextResponse.json(
+      { success: true, data: dishes },
+      {
+        headers: {
+          'Cache-Control': 'public, max-age=60, stale-while-revalidate=300',
+        },
+      }
+    );
   } catch (error) {
     return NextResponse.json({ success: false, error: String(error) }, { status: 500 });
   }

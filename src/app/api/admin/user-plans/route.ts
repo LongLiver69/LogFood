@@ -27,7 +27,7 @@ export async function GET(request: NextRequest) {
     }
 
     await dbConnect();
-    const targetUser = await User.findById(targetUserId).select('-password');
+    const targetUser = await User.findById(targetUserId).select('-password').lean();
     if (!targetUser) {
       return NextResponse.json(
         { success: false, error: 'Không tìm thấy thông tin thành viên' },
@@ -39,11 +39,11 @@ export async function GET(request: NextRequest) {
     if (weekKey) filter.weekKey = weekKey;
 
     const availableWeeks = await DayPlan.distinct('weekKey', { userId: targetUserId });
-    const dayPlans = await DayPlan.find(filter).sort({ date: 1 });
+    const dayPlans = await DayPlan.find(filter).sort({ date: 1 }).lean();
 
     // Populate or retrieve dish details for all selections
     const dishIds = dayPlans.flatMap((dp) => dp.selections.map((s) => s.dishId));
-    const dishes = await Dish.find({ _id: { $in: dishIds } });
+    const dishes = await Dish.find({ _id: { $in: dishIds } }).lean();
     const dishMap = new Map(dishes.map((d) => [d._id.toString(), d]));
 
     const enrichedPlans = dayPlans.map((dp) => ({

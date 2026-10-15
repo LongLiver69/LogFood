@@ -30,7 +30,7 @@ export async function GET(request: NextRequest) {
     const filter: Record<string, string> = { userId: targetUserId };
     if (weekKey) filter.weekKey = weekKey;
 
-    const plans = await DayPlan.find(filter).sort({ date: 1 });
+    const plans = await DayPlan.find(filter).sort({ date: 1 }).lean();
     return NextResponse.json({ success: true, data: plans });
   } catch (error) {
     return NextResponse.json({ success: false, error: String(error) }, { status: 500 });

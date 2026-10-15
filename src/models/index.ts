@@ -84,6 +84,9 @@ const DishSchema = new Schema<IDish>(
   { timestamps: true }
 );
 
+DishSchema.index({ dietType: 1, meal: 1 });
+DishSchema.index({ dietType: 1 });
+
 export const Dish: Model<IDish> =
   mongoose.models.Dish || mongoose.model<IDish>('Dish', DishSchema);
 
@@ -132,6 +135,7 @@ const DayPlanSchema = new Schema<IDayPlan>(
 );
 
 DayPlanSchema.index({ userId: 1, date: 1 }, { unique: true });
+DayPlanSchema.index({ userId: 1, weekKey: 1 });
 
 export const DayPlan: Model<IDayPlan> =
   mongoose.models.DayPlan || mongoose.model<IDayPlan>('DayPlan', DayPlanSchema);
