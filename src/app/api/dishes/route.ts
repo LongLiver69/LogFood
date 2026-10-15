@@ -2,8 +2,11 @@ import { NextRequest, NextResponse } from 'next/server';
 import dbConnect from '@/lib/mongodb';
 import { Dish } from '@/models';
 import { SEED_DISHES } from '@/lib/constants';
+import { getUserFromRequest } from '@/lib/auth';
 
-// GET /api/dishes - lấy danh sách món ăn
+export const dynamic = 'force-dynamic';
+
+// GET /api/dishes - lấy danh sách món ăn (cả admin lẫn user đều được xem)
 export async function GET(request: NextRequest) {
   try {
     await dbConnect();
@@ -21,17 +24,33 @@ export async function GET(request: NextRequest) {
   }
 }
 
-// POST /api/dishes - thêm món ăn mới
+// POST /api/dishes - thêm món ăn mới hoặc nạp dữ liệu mẫu (Chỉ Admin)
 export async function POST(request: NextRequest) {
   try {
     await dbConnect();
+    const user = await getUserFromRequest(request);
+
+    // Cho phép seed nếu DB hoàn toàn trống để tiện khởi tạo ban đầu,
+    // còn lại bắt buộc phải có quyền Admin
+    const dishCount = await Dish.countDocuments();
     const body = await request.json();
 
-    // Check if seeding is requested
+    if (body.seed && dishCount === 0) {
+      await Dish.insertMany(SEED_DISHES);
+      return NextResponse.json({ success: true, message: 'Đã nạp dữ liệu thực đơn mẫu thành công' });
+    }
+
+    if (!user || user.role !== 'admin') {
+      return NextResponse.json(
+        { success: false, error: 'Chỉ quản trị viên (Admin) mới có quyền thêm món ăn vào hệ thống' },
+        { status: 403 }
+      );
+    }
+
     if (body.seed) {
       await Dish.deleteMany({});
       await Dish.insertMany(SEED_DISHES);
-      return NextResponse.json({ success: true, message: 'Seeded successfully' });
+      return NextResponse.json({ success: true, message: 'Đã cập nhật lại toàn bộ thực đơn mẫu' });
     }
 
     const dish = await Dish.create(body);

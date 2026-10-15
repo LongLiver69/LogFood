@@ -1,5 +1,41 @@
 import mongoose, { Schema, Document, Model } from 'mongoose';
 
+// ============ USER (NGƯỜI DÙNG & PHÂN QUYỀN) ============
+export interface IUser extends Document {
+  _id: mongoose.Types.ObjectId;
+  email: string;
+  password: string;
+  fullName: string;
+  role: 'admin' | 'user';
+  height?: number; // cm
+  weight?: number; // kg
+  targetWeight?: number; // kg
+  gender?: 'male' | 'female' | 'other';
+  age?: number;
+  dietPreference?: '1000kcal' | '1200kcal';
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+const UserSchema = new Schema<IUser>(
+  {
+    email: { type: String, required: true, unique: true, lowercase: true, trim: true },
+    password: { type: String, required: true },
+    fullName: { type: String, required: true, trim: true },
+    role: { type: String, enum: ['admin', 'user'], default: 'user' },
+    height: { type: Number, min: 50, max: 250 },
+    weight: { type: Number, min: 20, max: 300 },
+    targetWeight: { type: Number, min: 20, max: 300 },
+    gender: { type: String, enum: ['male', 'female', 'other'], default: 'female' },
+    age: { type: Number, min: 10, max: 120 },
+    dietPreference: { type: String, enum: ['1000kcal', '1200kcal'], default: '1000kcal' },
+  },
+  { timestamps: true }
+);
+
+export const User: Model<IUser> =
+  mongoose.models.User || mongoose.model<IUser>('User', UserSchema);
+
 // ============ INGREDIENT ============
 export interface IIngredient {
   name: string;

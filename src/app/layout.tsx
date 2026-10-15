@@ -8,12 +8,12 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "LogFood - Quản Lý Thực Đơn Giảm Cân",
-  description: "Hệ thống quản lý thực đơn tự chọn các món ăn theo chế độ giảm cân 1000Kcal và 1200Kcal. Theo dõi dinh dưỡng, định lượng và hướng dẫn nấu ăn.",
-  keywords: "thực đơn giảm cân, 1000kcal, 1200kcal, log food, quản lý dinh dưỡng",
+  title: "LogFood - Quản Lý Chế Độ Dinh Dưỡng",
+  description: "Hệ thống quản lý chế độ dinh dưỡng tự chọn các món ăn theo mức 1000Kcal và 1200Kcal. Theo dõi chỉ số BMI, định lượng thực phẩm (g sống & g chín) và hướng dẫn nấu ăn.",
+  keywords: "quản lý chế độ dinh dưỡng, dinh dưỡng, 1000kcal, 1200kcal, log food, theo dõi bmi, tính bmi",
   openGraph: {
-    title: "LogFood - Quản Lý Thực Đơn Giảm Cân",
-    description: "Hệ thống quản lý thực đơn tự chọn theo chế độ giảm cân",
+    title: "LogFood - Quản Lý Chế Độ Dinh Dưỡng",
+    description: "Hệ thống quản lý chế độ dinh dưỡng tự chọn theo ngày và tuần",
     type: "website",
   },
 };
