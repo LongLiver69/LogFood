@@ -2,7 +2,7 @@
 
 import { Flame, UtensilsCrossed, BookOpen, X, Check, Lock } from 'lucide-react';
 import { Dish } from '@/types';
-import { MEAL_LABELS, formatIngredientWeight } from '@/lib/constants';
+import { MEAL_LABELS, formatIngredientWeight, isNumericWeight, getNumericGramValue } from '@/lib/constants';
 
 interface DishDetailModalProps {
   dish: Dish;
@@ -59,12 +59,12 @@ export default function DishDetailModal({
                 </thead>
                 <tbody>
                   {dish.ingredients.map((ing, i) => {
-                    const rawVal = ing.rawGrams !== undefined && ing.rawGrams !== null && String(ing.rawGrams).trim() !== '' && String(ing.rawGrams).trim() !== '0'
-                      ? (String(ing.rawGrams).toLowerCase().endsWith('g') ? String(ing.rawGrams) : `${ing.rawGrams}g`)
+                    const rawVal = ing.rawGrams !== undefined && ing.rawGrams !== null && String(ing.rawGrams).trim() !== '' && String(ing.rawGrams).trim() !== '0' && String(ing.rawGrams).trim() !== '0g'
+                      ? (isNumericWeight(String(ing.rawGrams)) ? `${getNumericGramValue(String(ing.rawGrams))}g` : String(ing.rawGrams))
                       : '-';
 
-                    const cookedVal = ing.cookedGrams !== undefined && ing.cookedGrams !== null && String(ing.cookedGrams).trim() !== '' && String(ing.cookedGrams).trim() !== '0'
-                      ? String(ing.cookedGrams)
+                    const cookedVal = ing.cookedGrams !== undefined && ing.cookedGrams !== null && String(ing.cookedGrams).trim() !== '' && String(ing.cookedGrams).trim() !== '0' && String(ing.cookedGrams).trim() !== '0g'
+                      ? (isNumericWeight(String(ing.cookedGrams)) ? `${getNumericGramValue(String(ing.cookedGrams))}g` : String(ing.cookedGrams))
                       : '-';
 
                     return (

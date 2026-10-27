@@ -1,4 +1,20 @@
+// Kiểm tra xem chuỗi có phải là số (hoặc số kèm chữ g, gam, gr) không
+export function isNumericWeight(str: string): boolean {
+  const clean = str.trim().toLowerCase();
+  return /^(\d+([.,]\d+)?)\s*(g|gam|gr)?$/i.test(clean);
+}
+
+export function getNumericGramValue(str: string): string {
+  const clean = str.trim().toLowerCase();
+  const match = clean.match(/^(\d+([.,]\d+)?)\s*(g|gam|gr)?$/i);
+  if (match) {
+    return match[1].replace(',', '.');
+  }
+  return str.trim();
+}
+
 // Hàm định dạng số g sống và số g chín / đơn vị thường dùng
+// Luôn đảm bảo giá trị số có đơn vị g (VD: 32.5 -> 32.5g chín)
 // Bỏ hoàn toàn các trường hợp hiển thị '0g' hoặc '0'
 export function formatIngredientWeight(raw?: string | number, cooked?: string | number): string {
   const rawStr = raw !== undefined && raw !== null ? String(raw).trim() : '';
@@ -9,8 +25,37 @@ export function formatIngredientWeight(raw?: string | number, cooked?: string | 
 
   if (!hasRaw && !hasCooked) return '';
 
-  const formattedRaw = hasRaw ? (rawStr.toLowerCase().endsWith('g') ? `${rawStr} sống` : `${rawStr}g sống`) : '';
-  const formattedCooked = hasCooked ? (cookedStr.toLowerCase().endsWith('g') ? `${cookedStr} chín` : cookedStr) : '';
+  let formattedRaw = '';
+  if (hasRaw) {
+    if (isNumericWeight(rawStr)) {
+      const num = getNumericGramValue(rawStr);
+      formattedRaw = `${num}g sống`;
+    } else if (rawStr.toLowerCase().includes('sống')) {
+      formattedRaw = rawStr;
+    } else if (rawStr.toLowerCase().endsWith('g')) {
+      formattedRaw = `${rawStr} sống`;
+    } else {
+      formattedRaw = rawStr;
+    }
+  }
+
+  let formattedCooked = '';
+  if (hasCooked) {
+    if (isNumericWeight(cookedStr)) {
+      const num = getNumericGramValue(cookedStr);
+      formattedCooked = `${num}g chín`;
+    } else if (cookedStr.toLowerCase().includes('chín')) {
+      const match = cookedStr.trim().match(/^(\d+([.,]\d+)?)\s*chín$/i);
+      if (match) {
+        formattedCooked = `${match[1].replace(',', '.')}g chín`;
+      } else {
+        formattedCooked = cookedStr;
+      }
+    } else {
+      // Đơn vị thường dùng dạng chữ (VD: 1 quả, 1 bát nhỏ, 2 lát...)
+      formattedCooked = cookedStr;
+    }
+  }
 
   if (hasRaw && hasCooked) {
     return `${formattedRaw} → ${formattedCooked}`;
