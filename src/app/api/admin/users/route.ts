@@ -31,17 +31,23 @@ export async function GET(request: NextRequest) {
     const usersWithStats = users.map((u) => {
       const planCount = countMap.get(u._id.toString()) || 0;
       const bmiInfo = calculateBMI(u.weight, u.height);
+      const weeklyDietPreferences = u.weeklyDietPreferences instanceof Map
+        ? Object.fromEntries(u.weeklyDietPreferences)
+        : (u.weeklyDietPreferences || {});
+
       return {
         _id: u._id,
         email: u.email,
         fullName: u.fullName,
         role: u.role,
+        isApproved: u.isApproved ?? true,
         height: u.height,
         weight: u.weight,
         targetWeight: u.targetWeight,
         gender: u.gender,
         age: u.age,
         dietPreference: u.dietPreference,
+        weeklyDietPreferences,
         planCount,
         bmiInfo,
         createdAt: u.createdAt,
@@ -52,5 +58,67 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     console.error('Admin users error:', error);
     return NextResponse.json({ success: false, error: 'Lỗi tải danh sách người dùng' }, { status: 500 });
+  }
+}
+
+// PATCH /api/admin/users: Duyệt/Khóa tài khoản hoặc phân quyền chế độ ăn (1000kcal / 1200kcal) theo tuần
+export async function PATCH(request: NextRequest) {
+  try {
+    const currentUser = await getUserFromRequest(request);
+    if (!currentUser || currentUser.role !== 'admin') {
+      return NextResponse.json(
+        { success: false, error: 'Chỉ quản trị viên mới có quyền thực hiện thao tác này' },
+        { status: 403 }
+      );
+    }
+
+    const body = await request.json();
+    const { userId, isApproved, dietPreference, weekKey, weeklyDietType } = body;
+
+    if (!userId) {
+      return NextResponse.json({ success: false, error: 'Thiếu mã định danh người dùng (userId)' }, { status: 400 });
+    }
+
+    await dbConnect();
+    const user = await User.findById(userId);
+    if (!user) {
+      return NextResponse.json({ success: false, error: 'Không tìm thấy người dùng' }, { status: 404 });
+    }
+
+    if (isApproved !== undefined) {
+      user.isApproved = Boolean(isApproved);
+    }
+
+    if (dietPreference) {
+      user.dietPreference = dietPreference;
+    }
+
+    if (weekKey && weeklyDietType) {
+      if (!user.weeklyDietPreferences) {
+        user.weeklyDietPreferences = new Map();
+      }
+      user.weeklyDietPreferences.set(weekKey, weeklyDietType);
+      user.markModified('weeklyDietPreferences');
+    }
+
+    await user.save();
+
+    const weeklyObj = user.weeklyDietPreferences instanceof Map
+      ? Object.fromEntries(user.weeklyDietPreferences)
+      : (user.weeklyDietPreferences || {});
+
+    return NextResponse.json({
+      success: true,
+      message: 'Cập nhật người dùng thành công',
+      data: {
+        _id: user._id,
+        isApproved: user.isApproved,
+        dietPreference: user.dietPreference,
+        weeklyDietPreferences: weeklyObj,
+      },
+    });
+  } catch (error) {
+    console.error('Update user admin error:', error);
+    return NextResponse.json({ success: false, error: 'Lỗi cập nhật người dùng' }, { status: 500 });
   }
 }

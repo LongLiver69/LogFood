@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { User as UserIcon, LogIn, Sparkles, X, AlertCircle, Scale, Shield, Eye, EyeOff } from 'lucide-react';
+import { User as UserIcon, LogIn, Sparkles, X, AlertCircle, CheckCircle, Scale, Shield, Eye, EyeOff } from 'lucide-react';
 import { UserProfile } from '@/types';
 
 interface AuthModalProps {
@@ -30,10 +30,12 @@ export default function AuthModal({
   const [age, setAge] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [successMessage, setSuccessMessage] = useState('');
 
   useEffect(() => {
     setMode(initialMode);
     setError('');
+    setSuccessMessage('');
   }, [initialMode, isOpen]);
 
   if (!isOpen) return null;
@@ -42,6 +44,7 @@ export default function AuthModal({
     e.preventDefault();
     setLoading(true);
     setError('');
+    setSuccessMessage('');
 
     try {
       if (mode === 'login') {
@@ -75,8 +78,11 @@ export default function AuthModal({
         if (!data.success) {
           throw new Error(data.error || 'Đăng ký không thành công');
         }
-        onSuccess(data.data);
-        onClose();
+
+        // Đăng ký thành công - yêu cầu Admin phê duyệt mới được đăng nhập
+        setSuccessMessage(data.message || 'Đăng ký thành công! Tài khoản của bạn đang chờ Quản trị viên duyệt để có thể đăng nhập.');
+        setMode('login');
+        setPassword('');
       }
     } catch (err: unknown) {
       const errorMsg = err instanceof Error ? err.message : 'Đã có lỗi xảy ra';
@@ -107,23 +113,30 @@ export default function AuthModal({
         <div className="grid grid-cols-2 p-1 rounded-xl bg-white/5 mb-5 border border-white/10">
           <button
             type="button"
-            onClick={() => { setMode('login'); setError(''); }}
+            onClick={() => { setMode('login'); setError(''); setSuccessMessage(''); }}
             className={`py-2 text-xs font-bold rounded-lg transition-all ${mode === 'login' ? 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/30' : 'text-slate-400 hover:text-white'}`}
           >
             Đăng nhập
           </button>
           <button
             type="button"
-            onClick={() => { setMode('register'); setError(''); }}
+            onClick={() => { setMode('register'); setError(''); setSuccessMessage(''); }}
             className={`py-2 text-xs font-bold rounded-lg transition-all ${mode === 'register' ? 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/30' : 'text-slate-400 hover:text-white'}`}
           >
             Đăng ký thành viên
           </button>
         </div>
 
+        {successMessage && (
+          <div className="p-3 mb-4 rounded-xl text-xs flex items-start gap-2 border border-emerald-500/30 text-emerald-300 bg-emerald-500/10">
+            <CheckCircle size={16} className="shrink-0 text-emerald-400 mt-0.5" />
+            <span>{successMessage}</span>
+          </div>
+        )}
+
         {error && (
-          <div className="p-3 mb-4 rounded-xl text-xs flex items-center gap-2 border border-red-500/30 text-red-300 bg-red-500/10">
-            <AlertCircle size={16} className="shrink-0 text-red-400" />
+          <div className="p-3 mb-4 rounded-xl text-xs flex items-start gap-2 border border-red-500/30 text-red-300 bg-red-500/10">
+            <AlertCircle size={16} className="shrink-0 text-red-400 mt-0.5" />
             <span>{error}</span>
           </div>
         )}
@@ -148,7 +161,7 @@ export default function AuthModal({
             <input
               required
               type="email"
-              placeholder="name@example.com"
+              placeholder="tenban@email.com"
               className="input-dark"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
@@ -178,58 +191,82 @@ export default function AuthModal({
           </div>
 
           {mode === 'register' && (
-            <div className="pt-2 border-t border-white/10">
-              <div className="flex items-center gap-1.5 mb-2.5 text-cyan-400 font-semibold text-xs">
-                <Scale size={14} />
-                <span>Thông tin thể trạng (Tự động tính BMI)</span>
+            <>
+              <div className="pt-2 border-t border-white/10">
+                <div className="text-xs font-semibold text-cyan-400 flex items-center gap-1.5 mb-2.5">
+                  <Scale size={14} />
+                  <span>Thông tin thể trạng (Tính toán BMI)</span>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-[11px] text-slate-400 mb-1">Chiều cao (cm)</label>
+                    <input
+                      type="number"
+                      step="0.5"
+                      placeholder="VD: 165"
+                      className="input-dark"
+                      value={height}
+                      onChange={(e) => setHeight(e.target.value)}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] text-slate-400 mb-1">Cân nặng (kg)</label>
+                    <input
+                      type="number"
+                      step="0.1"
+                      placeholder="VD: 60"
+                      className="input-dark"
+                      value={weight}
+                      onChange={(e) => setWeight(e.target.value)}
+                    />
+                  </div>
+                </div>
               </div>
-              <div className="grid grid-cols-2 gap-2.5">
+
+              <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-[11px] text-slate-400 mb-1">Chiều cao (cm)</label>
+                  <label className="block text-[11px] text-slate-400 mb-1">Mục tiêu cân nặng (kg)</label>
                   <input
                     type="number"
-                    placeholder="165"
-                    className="input-dark"
-                    value={height}
-                    onChange={(e) => setHeight(e.target.value)}
-                  />
-                </div>
-                <div>
-                  <label className="block text-[11px] text-slate-400 mb-1">Cân nặng (kg)</label>
-                  <input
-                    type="number"
-                    placeholder="60"
-                    className="input-dark"
-                    value={weight}
-                    onChange={(e) => setWeight(e.target.value)}
-                  />
-                </div>
-                <div>
-                  <label className="block text-[11px] text-slate-400 mb-1">Mục tiêu (kg)</label>
-                  <input
-                    type="number"
-                    placeholder="55"
+                    step="0.1"
+                    placeholder="VD: 55"
                     className="input-dark"
                     value={targetWeight}
                     onChange={(e) => setTargetWeight(e.target.value)}
                   />
                 </div>
                 <div>
-                  <label className="block text-[11px] text-slate-400 mb-1">Giới tính</label>
-                  <select
+                  <label className="block text-[11px] text-slate-400 mb-1">Tuổi</label>
+                  <input
+                    type="number"
+                    placeholder="VD: 25"
                     className="input-dark"
-                    value={gender}
-                    onChange={(e) => setGender(e.target.value as 'male' | 'female')}
-                  >
-                    <option value="female" style={{ background: '#1e293b' }}>Nữ</option>
-                    <option value="male" style={{ background: '#1e293b' }}>Nam</option>
-                  </select>
+                    value={age}
+                    onChange={(e) => setAge(e.target.value)}
+                  />
                 </div>
               </div>
-            </div>
+
+              <div>
+                <label className="block text-[11px] text-slate-400 mb-1">Giới tính</label>
+                <select
+                  className="input-dark"
+                  value={gender}
+                  onChange={(e) => setGender(e.target.value as 'male' | 'female')}
+                >
+                  <option value="female" style={{ background: '#1e293b' }}>Nữ</option>
+                  <option value="male" style={{ background: '#1e293b' }}>Nam</option>
+                </select>
+              </div>
+
+              <div className="p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-[11px] text-amber-300 flex items-center gap-2">
+                <Shield size={14} className="shrink-0 text-amber-400" />
+                <span>Lưu ý: Tài khoản sau khi đăng ký cần được Quản trị viên phê duyệt trước khi đăng nhập.</span>
+              </div>
+            </>
           )}
 
-          <div className="pt-3">
+          <div className="pt-2">
             <button
               type="submit"
               disabled={loading}
@@ -239,24 +276,14 @@ export default function AuthModal({
                 <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
               ) : mode === 'login' ? (
                 <>
-                  <LogIn size={16} /> Đăng nhập
+                  <LogIn size={15} /> Đăng nhập
                 </>
               ) : (
                 <>
-                  <Sparkles size={16} /> Hoàn tất đăng ký
+                  <Sparkles size={15} /> Đăng ký tài khoản
                 </>
               )}
             </button>
-          </div>
-
-          <div className="pt-2 text-center border-t border-white/5">
-            <Link
-              href="/admin/create-admin"
-              onClick={onClose}
-              className="inline-flex items-center gap-1 text-[11px] text-purple-400 hover:text-purple-300 transition-colors"
-            >
-              <Shield size={12} /> Trang tạo tài khoản Quản trị viên (Admin)
-            </Link>
           </div>
         </form>
       </div>

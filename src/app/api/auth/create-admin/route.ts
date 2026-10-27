@@ -6,12 +6,9 @@ import { getUserFromRequest } from '@/lib/auth';
 
 export const dynamic = 'force-dynamic';
 
-const ADMIN_SETUP_SECRET = process.env.ADMIN_SETUP_SECRET;
-
 export async function POST(request: NextRequest) {
   try {
     await dbConnect();
-    const caller = await getUserFromRequest(request);
     const body = await request.json();
     const { email, password, fullName, secretKey } = body;
 
@@ -52,6 +49,7 @@ export async function POST(request: NextRequest) {
       existing.password = await bcrypt.hash(password, salt);
       existing.fullName = fullName.trim();
       existing.role = 'admin';
+      existing.isApproved = true;
       await existing.save();
 
       return NextResponse.json({
@@ -75,6 +73,7 @@ export async function POST(request: NextRequest) {
       password: hashedPassword,
       fullName: fullName.trim(),
       role: 'admin',
+      isApproved: true,
     });
 
     return NextResponse.json({

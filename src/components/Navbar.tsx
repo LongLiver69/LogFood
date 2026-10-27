@@ -20,7 +20,7 @@ import { UserProfile } from '@/types';
 interface NavbarProps {
   currentUser: UserProfile | null;
   dietType: string;
-  onSelectDietType: (type: '1000kcal' | '1200kcal') => void;
+  onSelectDietType?: (type: '1000kcal' | '1200kcal') => void;
   saveMessage?: string;
   isSaving?: boolean;
   onOpenProfile: () => void;
@@ -30,12 +30,9 @@ interface NavbarProps {
   onLogout: () => void;
 }
 
-const DIET_TYPES = ['1000kcal', '1200kcal'] as const;
-
 export default function Navbar({
   currentUser,
   dietType,
-  onSelectDietType,
   saveMessage,
   isSaving,
   onOpenProfile,
@@ -60,23 +57,14 @@ export default function Navbar({
           </div>
         </Link>
 
-        {/* Diet selector (only show if regular user is logged in) */}
+        {/* Chế độ dinh dưỡng của user: Chỉ hiển thị do Admin/Bác sĩ cấp quyền, user không được tự chọn */}
         {currentUser && currentUser.role !== 'admin' && (
-          <div className="hidden sm:flex items-center gap-2">
-            <span className="text-xs text-slate-400">Chế độ:</span>
-            <div className="flex rounded-xl p-1 gap-1" style={{ background: 'rgba(255,255,255,0.05)' }}>
-              {DIET_TYPES.map((type) => (
-                <button
-                  key={type}
-                  onClick={() => onSelectDietType(type)}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-                    dietType === type ? 'text-white bg-gradient-to-r from-cyan-400 to-cyan-600 shadow' : 'text-slate-400 hover:text-white'
-                  }`}
-                >
-                  {type}
-                </button>
-              ))}
-            </div>
+          <div className="hidden sm:flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-cyan-500/10 border border-cyan-500/25 text-xs text-cyan-300 font-medium">
+            <Sparkles size={14} className="text-cyan-400" />
+            <span>
+              Chế độ dinh dưỡng: <strong className="text-white font-bold uppercase">{dietType}</strong>
+              <span className="text-[11px] text-slate-400 ml-1.5 hidden md:inline">(Admin/Bác sĩ chỉ định)</span>
+            </span>
           </div>
         )}
 
@@ -153,38 +141,37 @@ export default function Navbar({
                     </div>
 
                     <button
-                      onClick={() => { setShowUserMenu(false); onOpenProfile(); }}
-                      className="w-full flex items-center gap-2 px-3 py-2 text-xs text-slate-300 hover:text-white hover:bg-white/5 rounded-xl transition-all cursor-pointer"
+                      onClick={() => {
+                        setShowUserMenu(false);
+                        onOpenProfile();
+                      }}
+                      className="w-full flex items-center gap-2 px-3 py-2 text-xs rounded-xl text-slate-300 hover:text-white hover:bg-white/10 transition-all"
                     >
-                      <Scale size={14} className="text-cyan-400" />
-                      {currentUser.role === 'admin' ? 'Chỉnh sửa thông tin cá nhân' : 'Hồ sơ thể trạng (BMI)'}
+                      <UserIcon size={14} />
+                      <span>Hồ sơ thể trạng (BMI)</span>
                     </button>
 
                     <button
-                      onClick={() => { setShowUserMenu(false); onOpenChangePassword(); }}
-                      className="w-full flex items-center gap-2 px-3 py-2 text-xs text-slate-300 hover:text-white hover:bg-white/5 rounded-xl transition-all"
+                      onClick={() => {
+                        setShowUserMenu(false);
+                        onOpenChangePassword();
+                      }}
+                      className="w-full flex items-center gap-2 px-3 py-2 text-xs rounded-xl text-slate-300 hover:text-white hover:bg-white/10 transition-all"
                     >
-                      <KeyRound size={14} className="text-amber-400" /> Đổi mật khẩu
+                      <KeyRound size={14} />
+                      <span>Đổi mật khẩu</span>
                     </button>
 
-                    {currentUser.role === 'admin' && (
-                      <Link
-                        href="/admin"
-                        onClick={() => setShowUserMenu(false)}
-                        className="w-full flex items-center gap-2 px-3 py-2 text-xs text-purple-300 hover:text-purple-200 hover:bg-purple-500/10 rounded-xl transition-all"
-                      >
-                        <Settings size={14} className="text-purple-400" /> Bảng điều khiển Quản trị
-                      </Link>
-                    )}
-
-                    <div className="pt-1 mt-1 border-t border-white/10">
-                      <button
-                        onClick={() => { setShowUserMenu(false); onLogout(); }}
-                        className="w-full flex items-center gap-2 px-3 py-2 text-xs text-red-400 hover:text-red-300 hover:bg-red-500/10 rounded-xl transition-all"
-                      >
-                        <LogOut size={14} /> Đăng xuất
-                      </button>
-                    </div>
+                    <button
+                      onClick={() => {
+                        setShowUserMenu(false);
+                        onLogout();
+                      }}
+                      className="w-full flex items-center gap-2 px-3 py-2 text-xs rounded-xl text-red-400 hover:bg-red-500/10 transition-all mt-1 border-t border-white/5"
+                    >
+                      <LogOut size={14} />
+                      <span>Đăng xuất</span>
+                    </button>
                   </div>
                 )}
               </div>
@@ -193,17 +180,17 @@ export default function Navbar({
             <div className="flex items-center gap-2">
               <button
                 onClick={onOpenLogin}
-                className="btn-ghost text-xs py-1.5 px-3 flex items-center gap-1.5"
+                className="btn-ghost flex items-center gap-1.5 text-xs py-1.5 px-3"
               >
                 <LogIn size={14} />
                 <span>Đăng nhập</span>
               </button>
               <button
                 onClick={onOpenRegister}
-                className="btn-primary text-xs py-1.5 px-3.5"
+                className="btn-primary flex items-center gap-1.5 text-xs py-1.5 px-3"
               >
                 <Sparkles size={14} />
-                <span>Đăng ký</span>
+                <span className="hidden sm:inline">Đăng ký</span>
               </button>
             </div>
           )}

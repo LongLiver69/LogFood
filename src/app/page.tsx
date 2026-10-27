@@ -60,9 +60,6 @@ export default function HomePage() {
       const data = await res.json();
       if (data.success && data.user) {
         setCurrentUser(data.user);
-        if (data.user.dietPreference) {
-          setDietType(data.user.dietPreference);
-        }
       } else {
         setCurrentUser(null);
       }
@@ -76,6 +73,17 @@ export default function HomePage() {
   useEffect(() => {
     checkSession();
   }, [checkSession]);
+
+  // Tự động phân bổ mức calo theo tuần mà Admin chỉ định cho User (User không tự ý đổi)
+  useEffect(() => {
+    if (currentUser && currentUser.role !== 'admin' && weekKey) {
+      const assignedDiet =
+        currentUser.weeklyDietPreferences?.[weekKey] ||
+        currentUser.dietPreference ||
+        '1000kcal';
+      setDietType(assignedDiet);
+    }
+  }, [currentUser, weekKey]);
 
   // Auto redirect admin to /admin dashboard
   useEffect(() => {
@@ -215,7 +223,6 @@ export default function HomePage() {
       <Navbar
         currentUser={currentUser}
         dietType={dietType}
-        onSelectDietType={(t) => setDietType(t)}
         saveMessage={saveMessage}
         isSaving={isSaving}
         onOpenProfile={() => setShowProfileModal(true)}
@@ -278,7 +285,7 @@ export default function HomePage() {
             </div>
           </div>
         ) : (
-          /* Khi là thành viên đã đăng nhập: Hiển thị bảng kế hoạch thực đơn theo tuần với tính năng tìm theo tuần */
+          /* Khi là thành viên đã đăng nhập: Hiển thị bảng kế hoạch thực đơn theo tuần với tính năng mở chọn trước theo tuần */
           <WeeklyPlanner
             currentWeekStart={currentWeekStart}
             onPrevWeek={() => currentWeekStart && setCurrentWeekStart(addDays(currentWeekStart, -7))}
@@ -308,7 +315,8 @@ export default function HomePage() {
         initialMode={authModalMode}
         onSuccess={(u) => {
           setCurrentUser(u);
-          if (u.dietPreference) setDietType(u.dietPreference);
+          const assigned = u.weeklyDietPreferences?.[weekKey] || u.dietPreference || '1000kcal';
+          setDietType(assigned);
         }}
       />
 
@@ -318,7 +326,8 @@ export default function HomePage() {
         user={currentUser}
         onUpdateSuccess={(u) => {
           setCurrentUser(u);
-          if (u.dietPreference) setDietType(u.dietPreference);
+          const assigned = u.weeklyDietPreferences?.[weekKey] || u.dietPreference || '1000kcal';
+          setDietType(assigned);
         }}
       />
 

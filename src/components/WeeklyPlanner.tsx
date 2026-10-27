@@ -2,7 +2,7 @@
 
 import { format, addDays, startOfWeek } from 'date-fns';
 import { vi } from 'date-fns/locale';
-import { ChevronLeft, ChevronRight, Star, Calendar, Scale, Activity, UtensilsCrossed } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Star, Calendar, Scale, Activity, UtensilsCrossed, Sparkles } from 'lucide-react';
 import { Dish, DayPlan, MealSelection, UserProfile } from '@/types';
 import DayColumn from './DayColumn';
 
@@ -46,6 +46,7 @@ export default function WeeklyPlanner({
     }) || null;
 
   const totalSelections = dayPlans.reduce((sum, p) => sum + p.selections.length, 0);
+  const plannedDaysCount = dayPlans.filter((p) => p.selections.length > 0).length;
   const noData = Object.keys(dishes).length === 0;
 
   const handleDateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -70,8 +71,13 @@ export default function WeeklyPlanner({
               <Star size={18} />
             </div>
             <div className="min-w-0">
-              <div className="text-xs text-slate-400 font-medium">Chế độ áp dụng</div>
-              <div className="text-sm font-bold text-white truncate">{dietType}</div>
+              <div className="text-xs text-slate-400 font-medium">Chế độ dinh dưỡng tuần</div>
+              <div className="text-sm font-bold text-white truncate">
+                {dietType === '1200kcal' ? '1200 kcal' : '1000 kcal'}
+              </div>
+              <div className="text-[10px] text-cyan-400 font-medium truncate">
+                {dietType === '1200kcal' ? '4 bữa: 300 - 420 - 120 - 360' : '4 bữa: 250 - 350 - 100 - 300'}
+              </div>
             </div>
           </div>
         </div>
@@ -84,6 +90,7 @@ export default function WeeklyPlanner({
             <div className="min-w-0">
               <div className="text-xs text-slate-400 font-medium">Tuần đang xem</div>
               <div className="text-sm font-bold text-white truncate">{weekKey}</div>
+              <div className="text-[10px] text-purple-300 font-medium truncate">Mở chọn trước các ngày</div>
             </div>
           </div>
         </div>
@@ -97,7 +104,7 @@ export default function WeeklyPlanner({
               <Scale size={18} />
             </div>
             <div className="min-w-0">
-              <div className="text-xs text-slate-400 font-medium">Chiều cao & Cân nặng</div>
+              <div className="text-xs text-slate-400 font-medium">Chiều cao &amp; Cân nặng</div>
               <div className="text-sm font-bold text-white truncate">
                 {currentUser?.height && currentUser?.weight ? (
                   `${currentUser.height} cm • ${currentUser.weight} kg`
@@ -105,6 +112,11 @@ export default function WeeklyPlanner({
                   <span className="text-cyan-400 text-xs font-semibold underline">Nhấn để cập nhật</span>
                 )}
               </div>
+              {currentUser?.bmiInfo && (
+                <div className="text-[10px] font-bold truncate" style={{ color: currentUser.bmiInfo.color }}>
+                  BMI {currentUser.bmiInfo.bmi} ({currentUser.bmiInfo.status})
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -115,9 +127,12 @@ export default function WeeklyPlanner({
               <Activity size={18} />
             </div>
             <div className="min-w-0">
-              <div className="text-xs text-slate-400 font-medium">Tiến độ chọn món</div>
+              <div className="text-xs text-slate-400 font-medium">Tiến độ chọn thực đơn</div>
               <div className="text-sm font-bold text-white truncate">
-                {totalSelections} / 28 bữa tuần này
+                {plannedDaysCount} / 7 ngày đã chọn
+              </div>
+              <div className="text-[10px] text-slate-400 truncate">
+                {totalSelections} món ăn trong tuần
               </div>
             </div>
           </div>

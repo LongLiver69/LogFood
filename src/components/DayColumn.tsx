@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { format, isBefore, isToday } from 'date-fns';
-import { Check, Lock, Info, ChevronDown, ChevronUp } from 'lucide-react';
+import { Check, Lock, Info, ChevronDown, ChevronUp, X, Plus } from 'lucide-react';
 import { Dish, DayPlan, MealSelection } from '@/types';
 import { MEAL_LABELS, MEAL_CALORIES, MEAL_ORDER, DAY_LABELS } from '@/lib/constants';
 import DishDetailModal from './DishDetailModal';
@@ -38,8 +38,8 @@ export default function DayColumn({
   const isLocked = isPast || (dayPlan?.isLocked ?? false);
   const selections = dayPlan?.selections || [];
 
-  const getSelectedDishForMeal = (meal: string) =>
-    selections.find((s) => s.meal === meal);
+  const getSelectedDishesForMeal = (meal: string) =>
+    selections.filter((s) => s.meal === meal);
 
   const toggleMealList = (meal: string, e?: React.MouseEvent) => {
     e?.stopPropagation();
@@ -55,13 +55,17 @@ export default function DayColumn({
       onRequireAuth();
       return;
     }
-    const existing = getSelectedDishForMeal(meal);
+    const isAlreadySelected = selections.some(
+      (s) => s.dishId === dish._id && s.meal === meal
+    );
     let newSelections: MealSelection[];
-    if (existing?.dishId === dish._id) {
-      newSelections = selections.filter((s) => s.meal !== meal);
+    if (isAlreadySelected) {
+      newSelections = selections.filter(
+        (s) => !(s.dishId === dish._id && s.meal === meal)
+      );
     } else {
       newSelections = [
-        ...selections.filter((s) => s.meal !== meal),
+        ...selections,
         { meal: dish.meal, dishId: dish._id, dishName: dish.name },
       ];
     }
@@ -77,7 +81,7 @@ export default function DayColumn({
   const targetCalories = parseInt(dietType);
 
   return (
-    <div className={`flex flex-col gap-3 min-w-[210px] w-full ${isLocked && !isToday(day) ? 'opacity-65' : ''}`}>
+    <div className={`flex flex-col gap-3 min-w-[220px] w-full ${isLocked && !isToday(day) ? 'opacity-65' : ''}`}>
       {/* Day Header */}
       <div
         className={`glass-card p-3 text-center transition-all ${isToday(day) ? 'pulse-glow border-cyan-400/60' : ''}`}
@@ -119,39 +123,76 @@ export default function DayColumn({
       {/* Meals for this day */}
       {MEAL_ORDER.map((meal) => {
         const mealDishes = dishes[meal] || [];
-        const selected = getSelectedDishForMeal(meal);
-        const selectedDishObj = mealDishes.find((d) => d._id === selected?.dishId);
+        const selectedDishes = getSelectedDishesForMeal(meal);
+        const selectedDishObjs = selectedDishes
+          .map((sel) => mealDishes.find((d) => d._id === sel.dishId))
+          .filter(Boolean) as Dish[];
+        const mealCalories = selectedDishObjs.reduce((sum, d) => sum + d.calories, 0);
         const targetCal = MEAL_CALORIES[dietType]?.[meal] || 0;
         const isExpanded = expandedMeals[meal];
+        const isMultipleAllowed = meal === 'lunch' || meal === 'dinner';
 
         return (
           <div key={meal} className={`glass-card p-3 border meal-${meal}`}>
             <div className="flex items-center justify-between mb-1.5">
-              <span className={`text-xs font-bold meal-${meal}`}>{MEAL_LABELS[meal]}</span>
-              <span className="text-[10px] text-slate-400 bg-white/5 px-1.5 py-0.5 rounded font-medium">{targetCal} kcal</span>
+              <div>
+                <span className={`text-xs font-bold meal-${meal}`}>{MEAL_LABELS[meal]}</span>
+                {isMultipleAllowed && (
+                  <span className="text-[10px] text-slate-400 block font-normal">
+                    (4 - 5 món)
+                  </span>
+                )}
+              </div>
+              <div className="text-right">
+                <span className="text-[10px] text-slate-400 bg-white/5 px-1.5 py-0.5 rounded font-medium block">
+                  {mealCalories}/{targetCal} kcal
+                </span>
+              </div>
             </div>
 
-            {/* Selected dish card */}
-            {selectedDishObj ? (
-              <div
-                className="dish-card selected rounded-lg p-2.5 mb-2 relative group"
-                style={{ border: '1px solid rgba(34,211,238,0.5)', background: 'rgba(34,211,238,0.08)' }}
-                onClick={() => setSelectedDish(selectedDishObj)}
-              >
-                <div className="flex items-start justify-between gap-1">
-                  <span className="text-xs text-white font-semibold leading-tight">{selectedDishObj.name}</span>
-                  <Check size={14} className="text-cyan-400 shrink-0 mt-0.5" />
-                </div>
-                <div className="flex items-center justify-between mt-1 text-[11px]">
-                  <span className="text-orange-400 font-medium">{selectedDishObj.calories} kcal</span>
-                  <span className="text-cyan-400 text-[10px] opacity-80 group-hover:opacity-100 flex items-center gap-0.5">
-                    <Info size={10} /> Chi tiết
-                  </span>
-                </div>
+            {/* Selected dishes list */}
+            {selectedDishObjs.length > 0 ? (
+              <div className="space-y-1.5 mb-2">
+                {selectedDishObjs.map((dishObj) => (
+                  <div
+                    key={dishObj._id}
+                    className="dish-card selected rounded-lg p-2 relative group"
+                    style={{ border: '1px solid rgba(34,211,238,0.5)', background: 'rgba(34,211,238,0.08)' }}
+                    onClick={() => setSelectedDish(dishObj)}
+                  >
+                    <div className="flex items-start justify-between gap-1">
+                      <span className="text-xs text-white font-semibold leading-tight line-clamp-2">
+                        {dishObj.name}
+                      </span>
+                      <div className="flex items-center gap-1 shrink-0">
+                        {!isLocked && (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleToggleDish(meal, dishObj);
+                            }}
+                            className="p-0.5 rounded hover:bg-red-500/20 text-slate-400 hover:text-red-400 transition-colors"
+                            title="Bỏ chọn món này"
+                          >
+                            <X size={12} />
+                          </button>
+                        )}
+                        <Check size={13} className="text-cyan-400 mt-0.5" />
+                      </div>
+                    </div>
+                    <div className="flex items-center justify-between mt-1 text-[10px]">
+                      <span className="text-orange-400 font-medium">{dishObj.calories} kcal</span>
+                      <span className="text-cyan-400 opacity-80 group-hover:opacity-100 flex items-center gap-0.5">
+                        <Info size={10} /> Chi tiết
+                      </span>
+                    </div>
+                  </div>
+                ))}
               </div>
             ) : (
               <div className="text-[11px] text-slate-400 italic mb-2 py-1 px-2 rounded bg-white/5 border border-dashed border-white/5">
-                Chưa chọn món
+                Chưa chọn món {isMultipleAllowed ? '(Chọn 4 - 5 món)' : ''}
               </div>
             )}
 
@@ -163,7 +204,12 @@ export default function DayColumn({
                   onClick={(e) => toggleMealList(meal, e)}
                   className="w-full py-1 text-[11px] font-semibold text-cyan-400 hover:text-cyan-300 flex items-center justify-between bg-white/5 hover:bg-white/10 px-2 rounded-lg transition-all"
                 >
-                  <span>{selectedDishObj ? 'Đổi món ăn' : 'Chọn món'} ({mealDishes.length})</span>
+                  <span className="flex items-center gap-1">
+                    <Plus size={12} />
+                    <span>
+                      {selectedDishObjs.length > 0 ? `Chọn thêm món (${selectedDishObjs.length})` : 'Chọn món'}
+                    </span>
+                  </span>
                   {isExpanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
                 </button>
               </div>
@@ -171,9 +217,9 @@ export default function DayColumn({
 
             {/* Collapsible list of dishes */}
             {!isLocked && isExpanded && (
-              <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1 animate-fade-in pt-1 border-t border-white/5 mt-1.5">
+              <div className="space-y-1.5 max-h-52 overflow-y-auto pr-1 animate-fade-in pt-1 border-t border-white/5 mt-1.5">
                 {mealDishes.map((dish) => {
-                  const isSel = selected?.dishId === dish._id;
+                  const isSel = selectedDishes.some((s) => s.dishId === dish._id);
                   return (
                     <div
                       key={dish._id}
@@ -187,6 +233,7 @@ export default function DayColumn({
                           {dish.name}
                         </span>
                         <div className="flex items-center gap-1 shrink-0">
+                          {isSel && <Check size={12} className="text-cyan-400" />}
                           <button
                             type="button"
                             onClick={(e) => { e.stopPropagation(); setSelectedDish(dish); }}
@@ -213,7 +260,7 @@ export default function DayColumn({
           dish={selectedDish}
           onClose={() => setSelectedDish(null)}
           onSelect={() => handleToggleDish(selectedDish.meal, selectedDish)}
-          isSelected={!!getSelectedDishForMeal(selectedDish.meal)?.dishId && getSelectedDishForMeal(selectedDish.meal)?.dishId === selectedDish._id}
+          isSelected={selections.some((s) => s.dishId === selectedDish._id && s.meal === selectedDish.meal)}
           isLocked={isLocked}
         />
       )}

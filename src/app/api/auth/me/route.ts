@@ -12,6 +12,10 @@ export async function GET(request: NextRequest) {
 
     const bmiInfo = calculateBMI(user.weight, user.height);
 
+    const weeklyDietPreferences = user.weeklyDietPreferences instanceof Map
+      ? Object.fromEntries(user.weeklyDietPreferences)
+      : (user.weeklyDietPreferences || {});
+
     return NextResponse.json({
       success: true,
       user: {
@@ -19,12 +23,14 @@ export async function GET(request: NextRequest) {
         email: user.email,
         fullName: user.fullName,
         role: user.role,
+        isApproved: user.isApproved ?? true,
         height: user.height,
         weight: user.weight,
         targetWeight: user.targetWeight,
         gender: user.gender,
         age: user.age,
         dietPreference: user.dietPreference,
+        weeklyDietPreferences,
         bmiInfo,
       },
     });

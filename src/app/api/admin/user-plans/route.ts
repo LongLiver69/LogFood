@@ -65,6 +65,9 @@ export async function GET(request: NextRequest) {
     }));
 
     const bmiInfo = calculateBMI(targetUser.weight, targetUser.height);
+    const weeklyDietPreferences = targetUser.weeklyDietPreferences instanceof Map
+      ? Object.fromEntries(targetUser.weeklyDietPreferences)
+      : (targetUser.weeklyDietPreferences || {});
 
     return NextResponse.json({
       success: true,
@@ -73,12 +76,14 @@ export async function GET(request: NextRequest) {
         email: targetUser.email,
         fullName: targetUser.fullName,
         role: targetUser.role,
+        isApproved: targetUser.isApproved ?? true,
         height: targetUser.height,
         weight: targetUser.weight,
         targetWeight: targetUser.targetWeight,
         gender: targetUser.gender,
         age: targetUser.age,
         dietPreference: targetUser.dietPreference,
+        weeklyDietPreferences,
         bmiInfo,
       },
       availableWeeks: availableWeeks.sort().reverse(),

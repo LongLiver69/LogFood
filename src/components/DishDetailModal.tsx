@@ -2,7 +2,7 @@
 
 import { Flame, UtensilsCrossed, BookOpen, X, Check, Lock } from 'lucide-react';
 import { Dish } from '@/types';
-import { MEAL_LABELS } from '@/lib/constants';
+import { MEAL_LABELS, formatIngredientWeight } from '@/lib/constants';
 
 interface DishDetailModalProps {
   dish: Dish;
@@ -53,18 +53,28 @@ export default function DishDetailModal({
                 <thead>
                   <tr style={{ background: 'rgba(255,255,255,0.05)' }}>
                     <th className="px-4 py-3 text-left text-slate-400 font-medium">Thực phẩm</th>
-                    <th className="px-4 py-3 text-center text-slate-400 font-medium">Sống (g)</th>
-                    <th className="px-4 py-3 text-center text-slate-400 font-medium">Chín (g)</th>
+                    <th className="px-4 py-3 text-center text-slate-400 font-medium">Số g sống</th>
+                    <th className="px-4 py-3 text-center text-slate-400 font-medium">Số g chín / Đơn vị thường dùng</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {dish.ingredients.map((ing, i) => (
-                    <tr key={i} className="border-t border-white/5 hover:bg-white/5 transition-colors">
-                      <td className="px-4 py-3 text-white">{ing.name}</td>
-                      <td className="px-4 py-3 text-center text-amber-400 font-medium">{ing.rawGrams}</td>
-                      <td className="px-4 py-3 text-center text-emerald-400 font-medium">{ing.cookedGrams}</td>
-                    </tr>
-                  ))}
+                  {dish.ingredients.map((ing, i) => {
+                    const rawVal = ing.rawGrams !== undefined && ing.rawGrams !== null && String(ing.rawGrams).trim() !== '' && String(ing.rawGrams).trim() !== '0'
+                      ? (String(ing.rawGrams).toLowerCase().endsWith('g') ? String(ing.rawGrams) : `${ing.rawGrams}g`)
+                      : '-';
+
+                    const cookedVal = ing.cookedGrams !== undefined && ing.cookedGrams !== null && String(ing.cookedGrams).trim() !== '' && String(ing.cookedGrams).trim() !== '0'
+                      ? String(ing.cookedGrams)
+                      : '-';
+
+                    return (
+                      <tr key={i} className="border-t border-white/5 hover:bg-white/5 transition-colors">
+                        <td className="px-4 py-3 text-white font-medium">{ing.name}</td>
+                        <td className="px-4 py-3 text-center text-amber-400 font-medium">{rawVal}</td>
+                        <td className="px-4 py-3 text-center text-emerald-400 font-medium">{cookedVal}</td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>

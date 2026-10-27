@@ -25,7 +25,11 @@ export async function PUT(request: NextRequest) {
     if (gender !== undefined) updateData.gender = gender;
     if (age !== undefined) updateData.age = age !== null && age !== '' ? Number(age) : null;
     if (fullName) updateData.fullName = fullName.trim();
-    if (dietPreference) updateData.dietPreference = dietPreference;
+
+    // Chỉ Admin mới được trực tiếp thay đổi mức calo ưu tiên trong profile
+    if (dietPreference && currentUser.role === 'admin') {
+      updateData.dietPreference = dietPreference;
+    }
 
     // Cập nhật email nếu có thay đổi
     if (email) {
@@ -61,6 +65,9 @@ export async function PUT(request: NextRequest) {
     }
 
     const bmiInfo = calculateBMI(updatedUser.weight, updatedUser.height);
+    const weeklyDietPreferences = updatedUser.weeklyDietPreferences instanceof Map
+      ? Object.fromEntries(updatedUser.weeklyDietPreferences)
+      : (updatedUser.weeklyDietPreferences || {});
 
     // Ký lại token với email/fullName mới nhất để đồng bộ phiên làm việc
     const token = signToken({
@@ -78,12 +85,14 @@ export async function PUT(request: NextRequest) {
         email: updatedUser.email,
         fullName: updatedUser.fullName,
         role: updatedUser.role,
+        isApproved: updatedUser.isApproved ?? true,
         height: updatedUser.height,
         weight: updatedUser.weight,
         targetWeight: updatedUser.targetWeight,
         gender: updatedUser.gender,
         age: updatedUser.age,
         dietPreference: updatedUser.dietPreference,
+        weeklyDietPreferences,
         bmiInfo,
       },
     });

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
-import { Scale, X, Check, AlertCircle } from 'lucide-react';
+import { Scale, X, Check, AlertCircle, Sparkles } from 'lucide-react';
 import { UserProfile } from '@/types';
 
 interface ProfileModalProps {
@@ -52,28 +52,28 @@ export default function ProfileModal({
     let status = 'Bình thường';
     let color = '#10b981';
     let dietRec: '1000kcal' | '1200kcal' = '1200kcal';
-    let advice = 'Chỉ số thể trạng lý tưởng! Bạn nên chọn thực đơn 1200Kcal để duy trì cân nặng ổn định.';
+    let advice = 'Chỉ số thể trạng lý tưởng! Bạn nên duy trì thực đơn để giữ cân nặng ổn định.';
 
     if (bmiVal < 18.5) {
       status = 'Gầy / Thiếu cân';
       color = '#38bdf8';
       dietRec = '1200kcal';
-      advice = 'Bạn đang dưới chuẩn cân nặng. Khuyến nghị áp dụng thực đơn 1200Kcal kết hợp bồi dưỡng.';
+      advice = 'Bạn đang dưới chuẩn cân nặng. Khuyến nghị áp dụng thực đơn bồi dưỡng dinh dưỡng lành mạnh.';
     } else if (bmiVal >= 18.5 && bmiVal <= 22.9) {
       status = 'Cân đối (Chuẩn Châu Á)';
       color = '#10b981';
       dietRec = '1200kcal';
-      advice = 'Vóc dáng rất cân đối. Chế độ 1200Kcal giúp giữ vóc dáng khỏe khoắn, không mệt mỏi.';
+      advice = 'Vóc dáng rất cân đối. Chế độ dinh dưỡng chuẩn giúp giữ vóc dáng khỏe khoắn, không mệt mỏi.';
     } else if (bmiVal >= 23.0 && bmiVal <= 24.9) {
       status = 'Tiền béo phì (Thừa cân)';
       color = '#f59e0b';
       dietRec = '1000kcal';
-      advice = 'Khuyến nghị áp dụng chế độ dinh dưỡng 1000Kcal để điều chỉnh năng lượng và đưa BMI về ngưỡng chuẩn.';
+      advice = 'Khuyến nghị kiểm soát năng lượng nạp vào để đưa BMI về ngưỡng cân đối.';
     } else {
       status = 'Béo phì';
       color = '#ef4444';
       dietRec = '1000kcal';
-      advice = 'Khuyến nghị áp dụng chế độ dinh dưỡng 1000Kcal với định lượng chuẩn để cân bằng năng lượng an toàn và hiệu quả.';
+      advice = 'Khuyến nghị áp dụng thực đơn định lượng chuẩn xác để cân bằng năng lượng an toàn và hiệu quả.';
     }
 
     const idealMin = Number((18.5 * hM * hM).toFixed(1));
@@ -99,19 +99,24 @@ export default function ProfileModal({
     setError('');
 
     try {
+      const payload: Record<string, unknown> = {
+        fullName,
+        email: email.trim(),
+        height: height ? Number(height) : null,
+        weight: weight ? Number(weight) : null,
+        targetWeight: targetWeight ? Number(targetWeight) : null,
+        gender,
+        age: age ? Number(age) : null,
+      };
+
+      if (user?.role === 'admin') {
+        payload.dietPreference = dietPreference;
+      }
+
       const res = await fetch('/api/user/profile', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          fullName,
-          email: email.trim(),
-          height: height ? Number(height) : null,
-          weight: weight ? Number(weight) : null,
-          targetWeight: targetWeight ? Number(targetWeight) : null,
-          gender,
-          age: age ? Number(age) : null,
-          dietPreference,
-        }),
+        body: JSON.stringify(payload),
       });
 
       const data = await res.json();
@@ -199,7 +204,7 @@ export default function ProfileModal({
               <p className="leading-relaxed">{liveBmiInfo.advice}</p>
               <div className="flex items-center justify-between pt-1 border-t border-white/5 text-[11px] text-slate-400">
                 <span>Cân nặng lý tưởng: <strong className="text-cyan-300">{liveBmiInfo.idealWeightMin} - {liveBmiInfo.idealWeightMax} kg</strong></span>
-                <span>Khuyến nghị: <strong className="text-orange-400">{liveBmiInfo.dietRecommendation}</strong></span>
+                <span>Gợi ý mức calo: <strong className="text-orange-400">{liveBmiInfo.dietRecommendation}</strong></span>
               </div>
             </div>
           </div>
@@ -262,6 +267,9 @@ export default function ProfileModal({
                 onChange={(e) => setWeight(e.target.value)}
               />
             </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div>
               <label className="block text-xs font-medium text-slate-400 mb-1">Cân nặng mục tiêu (kg)</label>
               <input
@@ -295,17 +303,25 @@ export default function ProfileModal({
                 <option value="other" style={{ background: '#1e293b' }}>Khác</option>
               </select>
             </div>
-            <div>
-              <label className="block text-xs font-medium text-slate-400 mb-1">Thực đơn ưu tiên</label>
+          </div>
+
+          <div>
+            <label className="block text-xs font-medium text-slate-400 mb-1">Chế độ dinh dưỡng áp dụng</label>
+            {user?.role === 'admin' ? (
               <select
                 className="input-dark"
                 value={dietPreference}
                 onChange={(e) => setDietPreference(e.target.value as '1000kcal' | '1200kcal')}
               >
-                <option value="1000kcal" style={{ background: '#1e293b' }}>1000 kcal (Kiểm soát năng lượng)</option>
-                <option value="1200kcal" style={{ background: '#1e293b' }}>1200 kcal (Cân bằng năng lượng)</option>
+                <option value="1000kcal" style={{ background: '#1e293b' }}>1000 kcal (4 bữa: 250 - 350 - 100 - 300)</option>
+                <option value="1200kcal" style={{ background: '#1e293b' }}>1200 kcal (4 bữa: 300 - 420 - 120 - 360)</option>
               </select>
-            </div>
+            ) : (
+              <div className="p-3 rounded-xl bg-white/5 border border-white/10 text-xs text-slate-300 flex items-center justify-between">
+                <span className="font-bold text-cyan-300 uppercase">{dietPreference || '1000kcal'}</span>
+                <span className="text-[11px] text-slate-400 italic">Do Quản trị viên / Bác sĩ chỉ định theo tuần</span>
+              </div>
+            )}
           </div>
 
           <div className="pt-3 flex gap-3">

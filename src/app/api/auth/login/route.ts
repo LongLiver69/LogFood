@@ -35,6 +35,17 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Kiểm tra phê duyệt của Quản trị viên đối với tài khoản 'user'
+    if (user.role === 'user' && user.isApproved === false) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'Tài khoản của bạn chưa được Quản trị viên phê duyệt. Vui lòng liên hệ Admin để được kích hoạt tài khoản.',
+        },
+        { status: 403 }
+      );
+    }
+
     const token = signToken({
       userId: user._id.toString(),
       email: user.email,
@@ -44,6 +55,10 @@ export async function POST(request: NextRequest) {
 
     const bmiInfo = calculateBMI(user.weight, user.height);
 
+    const weeklyDietPreferences = user.weeklyDietPreferences instanceof Map
+      ? Object.fromEntries(user.weeklyDietPreferences)
+      : (user.weeklyDietPreferences || {});
+
     const response = NextResponse.json({
       success: true,
       message: 'Đăng nhập thành công',
@@ -52,12 +67,14 @@ export async function POST(request: NextRequest) {
         email: user.email,
         fullName: user.fullName,
         role: user.role,
+        isApproved: user.isApproved ?? true,
         height: user.height,
         weight: user.weight,
         targetWeight: user.targetWeight,
         gender: user.gender,
         age: user.age,
         dietPreference: user.dietPreference,
+        weeklyDietPreferences,
         bmiInfo,
       },
       token,

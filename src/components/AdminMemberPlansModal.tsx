@@ -12,8 +12,9 @@ import {
   Search,
   Lock,
   Flame,
+  CheckCircle,
 } from 'lucide-react';
-import { MEAL_LABELS, MEAL_ORDER, DAY_LABELS } from '@/lib/constants';
+import { MEAL_LABELS, MEAL_ORDER, DAY_LABELS, formatIngredientWeight } from '@/lib/constants';
 
 interface AdminMemberPlansModalProps {
   userId: string | null;
@@ -39,6 +40,8 @@ export default function AdminMemberPlansModal({ userId, onClose }: AdminMemberPl
     dayPlans: any[];
   } | null>(null);
   const [error, setError] = useState('');
+  const [assignMessage, setAssignMessage] = useState('');
+  const [isAssigning, setIsAssigning] = useState(false);
 
   const currentWeekKey = useMemo(() => getWeekKey(selectedWeekStart), [selectedWeekStart]);
   const weekDays = useMemo(() => getWeekDays(selectedWeekStart), [selectedWeekStart]);
@@ -78,19 +81,49 @@ export default function AdminMemberPlansModal({ userId, onClose }: AdminMemberPl
   // Jump to selected weekKey from dropdown
   const handleSelectWeekKey = (wKey: string) => {
     if (!wKey) return;
-    // format "YYYY-Www"
     const [yearStr, weekStr] = wKey.split('-W');
     const year = parseInt(yearStr, 10);
     const week = parseInt(weekStr, 10);
     if (!isNaN(year) && !isNaN(week)) {
-      // Find approximate date of that week
       const jan4 = new Date(year, 0, 4);
       const targetDate = addDays(jan4, (week - 1) * 7);
       setSelectedWeekStart(startOfWeek(targetDate, { weekStartsOn: 1 }));
     }
   };
 
+  // Cấp quyền chế độ ăn (1000kcal hay 1200kcal) theo tuần cho thành viên
+  const handleAssignDiet = async (dietType: '1000kcal' | '1200kcal') => {
+    if (!userId) return;
+    setIsAssigning(true);
+    try {
+      const res = await fetch('/api/admin/users', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId,
+          weekKey: currentWeekKey,
+          weeklyDietType: dietType,
+        }),
+      });
+      const resJson = await res.json();
+      if (resJson.success) {
+        setAssignMessage(`Đã cấp quyền thực đơn ${dietType} cho tuần ${currentWeekKey}!`);
+        setTimeout(() => setAssignMessage(''), 2500);
+        loadUserPlans();
+      }
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setIsAssigning(false);
+    }
+  };
+
   if (!userId) return null;
+
+  const currentWeekDiet =
+    data?.user?.weeklyDietPreferences?.[currentWeekKey] ||
+    data?.user?.dietPreference ||
+    '1000kcal';
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5" style={{ background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(10px)' }}>
@@ -123,7 +156,7 @@ export default function AdminMemberPlansModal({ userId, onClose }: AdminMemberPl
           </div>
         )}
 
-        {/* Member Quick Info Bar */}
+        {/* Member Quick Info Bar & Diet Assignment */}
         {data?.user && (
           <div className="p-3.5 rounded-2xl bg-white/5 border border-white/10 grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs mb-4">
             <div>
@@ -143,8 +176,19 @@ export default function AdminMemberPlansModal({ userId, onClose }: AdminMemberPl
               )}
             </div>
             <div>
-              <span className="text-slate-400 block text-[11px]">Chế độ dinh dưỡng:</span>
-              <span className="font-bold text-cyan-300">{data.user.dietPreference || '1000kcal'}</span>
+              <span className="text-slate-400 block text-[11px]">Cấp quyền thực đơn tuần ({currentWeekKey}):</span>
+              <select
+                value={currentWeekDiet}
+                disabled={isAssigning}
+                onChange={(e) => handleAssignDiet(e.target.value as '1000kcal' | '1200kcal')}
+                className="input-dark text-xs py-1 px-2 font-bold text-cyan-300 mt-0.5 cursor-pointer"
+              >
+                <option value="1000kcal" style={{ background: '#1e293b' }}>1000 kcal (250 - 350 - 100 - 300)</option>
+                <option value="1200kcal" style={{ background: '#1e293b' }}>1200 kcal (300 - 420 - 120 - 360)</option>
+              </select>
+              {assignMessage && (
+                <span className="text-[10px] text-emerald-400 block mt-1 font-medium">{assignMessage}</span>
+              )}
             </div>
             <div>
               <span className="text-slate-400 block text-[11px]">Tuần có dữ liệu:</span>
@@ -234,7 +278,7 @@ export default function AdminMemberPlansModal({ userId, onClose }: AdminMemberPl
                 ) || 0;
 
                 return (
-                  <div key={day.toISOString()} className="flex flex-col gap-2.5 min-w-[210px] w-[210px]">
+                  <div key={day.toISOString()} className="flex flex-col gap-2.5 min-w-[220px] w-[220px]">
                     {/* Day Column Header */}
                     <div className="glass-card p-3 text-center border-white/10">
                       <div className="text-xs text-slate-400 font-semibold mb-0.5">{DAY_LABELS[day.getDay()]}</div>
@@ -253,36 +297,51 @@ export default function AdminMemberPlansModal({ userId, onClose }: AdminMemberPl
 
                     {/* 4 Meals for this day */}
                     {MEAL_ORDER.map((mealKey) => {
-                      const sel = dayPlan?.selections?.find((s: any) => s.meal === mealKey);
+                      const mealSelections = dayPlan?.selections?.filter((s: any) => s.meal === mealKey) || [];
+                      const mealCal = mealSelections.reduce((sum: number, s: any) => sum + (s.dishDetail?.calories || 0), 0);
 
                       return (
                         <div key={mealKey} className={`glass-card p-2.5 border meal-${mealKey}`}>
                           <div className="flex items-center justify-between mb-1">
                             <span className={`text-[11px] font-bold meal-${mealKey}`}>{MEAL_LABELS[mealKey]}</span>
-                            {sel?.dishDetail && (
+                            {mealSelections.length > 0 && (
                               <span className="text-[10px] text-orange-400 font-semibold">
-                                {sel.dishDetail.calories} kcal
+                                {mealCal} kcal ({mealSelections.length} món)
                               </span>
                             )}
                           </div>
 
-                          {sel ? (
-                            <div className="space-y-1">
-                              <div className="text-xs font-semibold text-white leading-tight">
-                                {sel.dishName}
-                              </div>
-                              {sel.dishDetail?.ingredients && sel.dishDetail.ingredients.length > 0 && (
-                                <div className="space-y-0.5 pt-1 border-t border-white/5 text-[10px]">
-                                  {sel.dishDetail.ingredients.map((ing: any, i: number) => (
-                                    <div key={i} className="text-slate-300 flex justify-between">
-                                      <span className="truncate pr-1">{ing.name}:</span>
-                                      <span className="text-cyan-300 shrink-0 font-medium">
-                                        {ing.rawGrams}g &rarr; {ing.cookedGrams}g
+                          {mealSelections.length > 0 ? (
+                            <div className="space-y-2">
+                              {mealSelections.map((sel: any, selIdx: number) => (
+                                <div key={selIdx} className="p-1.5 rounded-lg bg-white/5 border border-white/5">
+                                  <div className="text-xs font-semibold text-white leading-tight mb-1 flex items-center justify-between">
+                                    <span>{sel.dishName}</span>
+                                    {sel.dishDetail && (
+                                      <span className="text-[10px] text-orange-400 font-medium ml-1 shrink-0">
+                                        {sel.dishDetail.calories} kcal
                                       </span>
+                                    )}
+                                  </div>
+                                  {sel.dishDetail?.ingredients && sel.dishDetail.ingredients.length > 0 && (
+                                    <div className="space-y-0.5 pt-1 border-t border-white/5 text-[10px]">
+                                      {sel.dishDetail.ingredients.map((ing: any, i: number) => {
+                                        const weightText = formatIngredientWeight(ing.rawGrams, ing.cookedGrams);
+                                        return (
+                                          <div key={i} className="text-slate-300 flex justify-between gap-1">
+                                            <span className="truncate pr-1">{ing.name}:</span>
+                                            {weightText ? (
+                                              <span className="text-cyan-300 shrink-0 font-medium">
+                                                {weightText}
+                                              </span>
+                                            ) : null}
+                                          </div>
+                                        );
+                                      })}
                                     </div>
-                                  ))}
+                                  )}
                                 </div>
-                              )}
+                              ))}
                             </div>
                           ) : (
                             <div className="text-[10px] text-slate-500 italic py-1">

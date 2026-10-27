@@ -5,7 +5,7 @@
 
 ## 1. TỔNG QUAN HỆ THỐNG
 
-**LogFood** là hệ thống web application hỗ trợ cá nhân hóa và quản lý chế độ dinh dưỡng hàng ngày, hàng tuần. Hệ thống cho phép người dùng tự lựa chọn món ăn theo từng bữa với định lượng chuẩn xác (gam sống và gam chín), xem hướng dẫn chế biến, nhập thông tin thể trạng (chiều cao, cân nặng) để tự động tính toán chỉ số BMI và nhận khuyến nghị chế độ dinh dưỡng phù hợp.
+**LogFood** là hệ thống web application hỗ trợ cá nhân hóa và quản lý chế độ dinh dưỡng hàng ngày, hàng tuần. Hệ thống cho phép người dùng tự lựa chọn món ăn theo từng bữa với định lượng chuẩn xác (gam sống và gam chín/đơn vị thường dùng), xem hướng dẫn chế biến, nhập thông tin thể trạng (chiều cao, cân nặng) để tự động tính toán chỉ số BMI và nhận khuyến nghị chế độ dinh dưỡng phù hợp.
 
 Hệ thống phân cấp quyền chặt chẽ giữa **Quản trị viên (Admin)** và **Người dùng thông thường (User)**, đảm bảo tính bảo mật và trải nghiệm thuận tiện nhất cho khách hàng.
 
@@ -33,20 +33,22 @@ Hệ thống thiết lập 2 nhóm quyền tài khoản rõ ràng:
 
 | Quyền hạn / Tính năng | Người dùng bình thường (`user`) | Quản trị viên (`admin`) |
 | :--- | :---: | :---: |
-| Đăng ký tài khoản thông thường | ✅ (Mặc định `user`) | ❌ (Không được đăng ký ở form chung) |
+| Đăng ký tài khoản thông thường | ✅ (Mặc định `user`, **chờ Admin duyệt**) | ❌ (Không được đăng ký ở form chung) |
+| Phê duyệt tài khoản thành viên đăng nhập | ❌ | ✅ (Duyệt/Kích hoạt hoặc khóa) |
 | Khởi tạo tài khoản Quản trị viên (`/admin/create-admin`) | ❌ | ✅ (Yêu cầu mã bảo mật Secret Key) |
-| Đăng nhập, Đăng xuất | ✅ | ✅ |
+| Đăng nhập, Đăng xuất | ✅ (Sau khi được duyệt) | ✅ |
 | Đổi mật khẩu tài khoản | ✅ | ✅ |
 | Nhập/cập nhật Chiều cao, Cân nặng, Cân nặng mục tiêu | ✅ (Chỉ bản thân) | ✅ (Chỉ bản thân) |
 | Xem bảng tính chỉ số BMI và nhận khuyến nghị chế độ | ✅ | ✅ |
+| Cấp quyền mức calo thực đơn (1000Kcal / 1200Kcal) theo tuần | ❌ (Không được tự ý đổi) | ✅ (Phân bổ linh hoạt theo tuần) |
 | Xem danh sách món ăn, định lượng, cách nấu | ✅ (Khi đã đăng nhập) | ✅ |
-| Chọn món ăn từng bữa theo tuần cho bản thân | ✅ | ✅ |
+| Chọn món ăn từng bữa theo tuần (mở chọn trước các ngày tới) | ✅ | ❌ (Không có màn tự chọn) |
 | Khóa không cho sửa thực đơn ngày đã qua | ✅ (Bắt buộc) | ✅ (Bắt buộc) |
 | Thêm món ăn mới vào hệ thống | ❌ | ✅ |
 | Chỉnh sửa / Xóa món ăn trong hệ thống | ❌ | ✅ |
 | Nạp dữ liệu thực đơn mẫu (Seed Data) | ❌ | ✅ |
 | Xem danh sách toàn bộ thành viên & chỉ số thể trạng | ❌ | ✅ |
-| **Xem danh sách món ăn đã chọn của các thành viên** | ❌ | ✅ |
+| **Xem danh sách món ăn đã chọn & cấp tuần cho thành viên** | ❌ | ✅ |
 
 ---
 
@@ -59,11 +61,13 @@ Hệ thống thiết lập 2 nhóm quyền tài khoản rõ ràng:
 - **Đăng ký tài khoản thành viên (`/api/auth/register`)**:
   - Form đăng ký công khai chỉ cho phép đăng ký tài khoản `user` (Người dùng bình thường).
   - Yêu cầu: Họ tên, Email, Mật khẩu (tối thiểu 6 ký tự), Chiều cao, Cân nặng, Cân nặng mục tiêu, Giới tính, Tuổi.
+  - **Quy trình phê duyệt (Approval Flow)**: Tài khoản mới tạo ở trạng thái chờ duyệt (`isApproved: false`). Người dùng cần được Quản trị viên phê duyệt mới có thể đăng nhập vào ứng dụng.
 - **Trang tạo tài khoản Quản trị viên (`/admin/create-admin` & `/api/auth/create-admin`)**:
   - Quản trị viên **không được phép đăng ký qua form thông thường**.
   - Hệ thống cung cấp trang riêng biệt `/admin/create-admin`. Chỉ những ai nhập chính xác Mã bảo mật hệ thống (`ADMIN_SETUP_SECRET`) mới được phép khởi tạo hoặc nâng cấp tài khoản Quản trị viên.
 - **Đăng nhập (`/api/auth/login`)**:
   - Xác thực qua Email và Mật khẩu bằng `bcryptjs`.
+  - Kiểm tra trạng thái phê duyệt: Nếu tài khoản `user` chưa được Admin duyệt (`isApproved: false`), từ chối đăng nhập và thông báo rõ ràng cho người dùng.
   - Cấp token JWT lưu trong HTTP-Only Cookie.
 - **Đổi mật khẩu (`/api/auth/change-password`)**:
   - Cho phép người dùng và quản trị viên đổi mật khẩu bảo mật.
@@ -79,7 +83,6 @@ Hệ thống thiết lập 2 nhóm quyền tài khoản rõ ràng:
   - Họ và tên, Địa chỉ Email đăng nhập (hệ thống kiểm tra tính hợp lệ và không trùng lặp với tài khoản khác).
   - Chiều cao ($cm$), Cân nặng hiện tại ($kg$), Cân nặng mục tiêu ($kg$).
   - Tuổi và Giới tính.
-  - Hỗ trợ cả Người dùng thông thường và Quản trị viên cập nhật thông tin thuận tiện.
 - **Công thức tính & Thang phân loại BMI (Chuẩn Châu Á - WHO/IDI & WPRO)**:
   $$\text{BMI} = \frac{\text{Cân nặng (kg)}}{[\text{Chiều cao (m)}]^2}$$
   - **$BMI < 18.5$**: *Gầy / Thiếu cân* &rarr; Gợi ý thực đơn 1200 Kcal kết hợp bồi dưỡng.
@@ -95,25 +98,29 @@ Hệ thống thiết lập 2 nhóm quyền tài khoản rõ ràng:
 - **2 Chế độ dinh dưỡng mục tiêu**:
   - **Chế độ 1000 Kcal/ngày**:
     - Bữa Sáng: $250\text{ kcal}$
-    - Bữa Trưa: $350\text{ kcal}$
+    - Bữa Trưa: $350\text{ kcal}$ (chia thành 4 - 5 món thành phần)
     - Phụ Chiều: $100\text{ kcal}$
-    - Bữa Tối: $300\text{ kcal}$
-  - **Chế độ 1200 Kcal/ngày**:
+    - Bữa Tối: $300\text{ kcal}$ (chia thành 4 - 5 món thành phần)
+  - **Chế độ 1200 Kcal/ngày (Chuẩn YH TDTT: 300 - 420 - 120 - 360)**:
     - Bữa Sáng: $300\text{ kcal}$
-    - Bữa Trưa: $400\text{ kcal}$
-    - Phụ Chiều: $150\text{ kcal}$
-    - Bữa Tối: $350\text{ kcal}$
-- **Cấu trúc hiển thị dạng lịch tuần & Tìm kiếm theo tuần**:
+    - Bữa Trưa: $420\text{ kcal}$ (chia thành 4 - 5 món thành phần)
+    - Phụ Chiều: $120\text{ kcal}$
+    - Bữa Tối: $360\text{ kcal}$ (chia thành 4 - 5 món thành phần)
+- **Quyền hạn chọn chế độ dinh dưỡng**:
+  - **Admin là người cấp quyền**: Admin chỉ định mức calo (1000Kcal hay 1200Kcal) cho user theo từng tuần (ví dụ: tuần 1 ăn 1200Kcal, tuần 3 lại ăn 1000Kcal).
+  - **User chỉ vào app chọn món**: User không được tự ý đổi mức calo này.
+- **Cấu trúc hiển thị dạng lịch tuần & Mở chọn trước các ngày**:
   - Hiển thị đầy đủ 7 ngày trong tuần (từ Thứ 2 đến Chủ Nhật).
   - Điều hướng nhanh giữa các tuần (Tuần trước / Tuần sau / Phím tắt &ldquo;Tuần này&rdquo;).
-  - **Tìm kiếm thực đơn theo tuần**: Người dùng có thể chọn bất kỳ ngày nào qua ô chọn ngày (Date Picker) để hệ thống tự động nhảy đến thực đơn của tuần tương ứng.
+  - **Mở chọn món theo tuần**: Người dùng có thể chọn trước các món của các ngày kế tiếp trong tuần hoặc các tuần tương lai.
+  - **Tìm kiếm thực đơn theo tuần**: Chọn bất kỳ ngày nào qua Date Picker để chuyển nhanh tới tuần tương ứng.
   - Thanh tiến trình tổng calo đã chọn/mục tiêu của từng ngày.
-- **Cơ chế chọn món linh hoạt**:
-  - Mỗi bữa hiển thị danh sách món ăn đa dạng để người dùng lựa chọn.
-  - Thu gọn/mở rộng danh sách món linh hoạt để tránh rối mắt.
+- **Cơ chế chọn món linh hoạt (Bữa trưa & Bữa tối chia 4 - 5 món)**:
+  - Bữa trưa và Bữa tối cho phép lựa chọn 4 - 5 món (Tinh bột, Đạm chính, Canh, Món xào, Món rau/dưa phụ).
   - Xem chi tiết món ăn (Modal Popup):
     - Tên món và năng lượng ($kcal$).
-    - Bảng định lượng nguyên liệu: Tên thực phẩm, số $g$ sống và số $g$ chín để tự cân đo.
+    - Bảng định lượng nguyên liệu: Tên thực phẩm, số g sống và số g chín / đơn vị thường dùng (hỗ trợ text: quả, bát, thìa, g...).
+    - **Quy tắc hiển thị định lượng**: Nếu không điền sống/chín thì ẩn đi, tuyệt đối không để thành `0g`.
     - Hướng dẫn chế biến/nấu ăn từng bước.
 - **Quy tắc khóa thực đơn quá khứ (Day Locking Rule)**:
   - Khi một ngày đã kết thúc (ngày trong quá khứ so với thời điểm hiện tại), hệ thống tự động khóa (Locked).
@@ -127,17 +134,21 @@ Hệ thống thiết lập 2 nhóm quyền tài khoản rõ ràng:
   - Khi đăng nhập vào hệ thống, Quản trị viên được dẫn hướng trực tiếp đến Bảng điều khiển Quản trị (`/admin`).
 - **Quản lý danh mục món ăn (CRUD)**:
   - Thêm món ăn mới: Tên món, lượng calo, bữa ăn áp dụng, chế độ calo, hướng dẫn nấu.
-  - Nhập thành phần định lượng chi tiết ($g$ sống và $g$ chín).
+  - Nhập thành phần định lượng chi tiết ($g$ sống và $g$ chín / đơn vị thường dùng dạng text linh hoạt).
   - Chỉnh sửa thông tin món ăn hiện có.
   - Xóa món ăn khỏi cơ sở dữ liệu.
-- **Quản lý thành viên & Thống kê thể trạng**:
+  - Nạp thực đơn mẫu chuẩn 1000Kcal và 1200Kcal.
+- **Quản lý thành viên & Phê duyệt tài khoản**:
   - **Danh sách thành viên**: Chỉ hiển thị các tài khoản người dùng (`user`), loại bỏ hoàn toàn các tài khoản Quản trị viên (`admin`) khỏi danh sách này.
+  - **Phê duyệt tài khoản (Approve User)**: Quản trị viên bấm duyệt thành viên mới đăng ký để kích hoạt quyền đăng nhập. Có thể khóa lại khi cần.
+  - **Cấp quyền mức calo theo tuần (Weekly Diet Assignment)**: Admin có thể gán chế độ ăn (1000Kcal / 1200Kcal) cho thành viên linh hoạt theo từng tuần.
   - Thống kê chỉ số thể trạng: Chiều cao, cân nặng, cân nặng mục tiêu, chế độ dinh dưỡng đang theo dõi, chỉ số BMI và phân loại thể trạng.
   - Đếm tổng số ngày người dùng đã lên kế hoạch thực đơn.
 - **Xem chi tiết thực đơn cả tuần của thành viên (`/api/admin/user-plans`)**:
   - **Hiển thị đầy đủ cả tuần (7 ngày từ Thứ 2 đến Chủ Nhật)**: Bố cục 7 cột ngày trực quan, mỗi ngày hiển thị đầy đủ 4 bữa ăn (Sáng, Trưa, Phụ, Tối).
+  - **Cấp quyền tuần trực tiếp**: Cho phép Admin chuyển đổi chế độ calo của tuần đang xem ngay trong modal.
   - **Tìm kiếm và lọc theo tuần**: Quản trị viên có thể tìm kiếm thực đơn theo ngày bất kỳ qua Date Picker, lựa chọn tuần trong danh sách các tuần thành viên đã lên thực đơn, hoặc bấm nút Tuần trước / Tuần sau.
-  - Hiển thị chi tiết năng lượng ($kcal$) và định lượng nguyên liệu sống/chín của từng món ăn mà thành viên đã chọn.
+  - Hiển thị chi tiết năng lượng ($kcal$) và định lượng nguyên liệu sống/chín của từng món ăn mà thành viên đã chọn (không có `0g`).
 
 ---
 
@@ -151,12 +162,14 @@ interface IUser {
   password: string;         // Mã hóa Bcrypt
   fullName: string;         // Họ và tên
   role: 'admin' | 'user';   // Quyền hạn ('admin' hoặc 'user')
+  isApproved: boolean;      // Được Admin phê duyệt (mặc định false cho user mới)
   height?: number;          // Chiều cao (cm)
   weight?: number;          // Cân nặng hiện tại (kg)
   targetWeight?: number;    // Cân nặng mục tiêu (kg)
   gender?: 'male' | 'female' | 'other';
   age?: number;             // Tuổi
-  dietPreference?: '1000kcal' | '1200kcal';
+  dietPreference?: '1000kcal' | '1200kcal'; // Chế độ mặc định
+  weeklyDietPreferences?: Map<string, '1000kcal' | '1200kcal'>; // Phân bổ mức calo theo tuần
   createdAt: Date;
   updatedAt: Date;
 }
@@ -166,8 +179,8 @@ interface IUser {
 ```typescript
 interface IIngredient {
   name: string;             // Tên nguyên liệu/thực phẩm
-  rawGrams: number;         // Định lượng sống (gam)
-  cookedGrams: number;      // Định lượng chín (gam)
+  rawGrams?: string | number;   // Định lượng sống (gam hoặc text)
+  cookedGrams?: string | number; // Định lượng chín / đơn vị thường dùng (text)
 }
 
 interface IDish {
@@ -200,7 +213,7 @@ interface IDayPlan {
   dayOfWeek: number;        // 0: CN, 1: T2, ..., 6: T7
   dietType: '1000kcal' | '1200kcal';
   selections: IMealSelection[];
-  isLocked: boolean;        // Trạng thái khóa
+  isLocked: boolean;        // Trạng thái khóa (ngày đã qua)
   createdAt: Date;
   updatedAt: Date;
 }
@@ -213,12 +226,12 @@ interface IDayPlan {
 
 | Nhóm API | Method | Endpoint | Mô tả | Quyền hạn |
 | :--- | :---: | :--- | :--- | :---: |
-| **Auth** | `POST` | `/api/auth/register` | Đăng ký tài khoản thành viên (`role: user`) | Mọi người |
+| **Auth** | `POST` | `/api/auth/register` | Đăng ký tài khoản thành viên (`isApproved: false`) | Mọi người |
 | | `POST` | `/api/auth/create-admin` | Khởi tạo tài khoản Quản trị viên | Secret Key / Admin |
-| | `POST` | `/api/auth/login` | Đăng nhập tài khoản & cấp JWT cookie | Mọi người |
+| | `POST` | `/api/auth/login` | Đăng nhập tài khoản & kiểm tra phê duyệt | Mọi người |
 | | `POST` | `/api/auth/logout` | Đăng xuất & xóa cookie phiên | Mọi người |
 | | `POST` | `/api/auth/change-password` | Đổi mật khẩu tài khoản | Đã đăng nhập |
-| | `GET` | `/api/auth/me` | Lấy thông tin tài khoản & chỉ số BMI | Đã đăng nhập |
+| | `GET` | `/api/auth/me` | Lấy thông tin tài khoản & chỉ số BMI, chế độ tuần | Đã đăng nhập |
 | **Profile** | `PUT` | `/api/user/profile` | Cập nhật chiều cao, cân nặng, mục tiêu | Đã đăng nhập |
 | **Dishes** | `GET` | `/api/dishes` | Lấy danh sách món theo bữa & chế độ | Đã đăng nhập |
 | | `POST` | `/api/dishes` | Thêm món ăn mới hoặc nạp dữ liệu mẫu | **Admin** |
@@ -228,7 +241,8 @@ interface IDayPlan {
 | **DayPlans** | `GET` | `/api/dayplans` | Lấy danh sách thực đơn đã chọn trong tuần | Đã đăng nhập |
 | | `POST` | `/api/dayplans` | Lưu món ăn đã chọn cho ngày (kiểm tra khóa) | Đã đăng nhập |
 | **Admin** | `GET` | `/api/admin/users` | Lấy danh sách thành viên & thống kê BMI | **Admin** |
-| | `GET` | `/api/admin/user-plans` | **Xem chi tiết thực đơn đã chọn của thành viên** | **Admin** |
+| | `PATCH` | `/api/admin/users` | Phê duyệt tài khoản & cấp quyền calo theo tuần | **Admin** |
+| | `GET` | `/api/admin/user-plans` | **Xem chi tiết thực đơn & cấp quyền calo tuần cho thành viên** | **Admin** |
 
 ---
 
@@ -240,7 +254,7 @@ src/
 ├── app/
 │   ├── admin/
 │   │   ├── create-admin/page.tsx # Trang tạo tài khoản Quản trị viên
-│   │   └── page.tsx              # Trang Dashboard Quản trị viên
+│   │   └── page.tsx              # Trang Dashboard Quản trị viên (Phê duyệt, CRUD, cấp tuần)
 │   ├── api/                      # Toàn bộ API Endpoints bảo mật
 │   │   ├── admin/
 │   │   ├── auth/
@@ -248,20 +262,20 @@ src/
 │   │   ├── dishes/
 │   │   └── user/
 │   ├── layout.tsx                # Layout gốc và thẻ Meta SEO
-│   └── page.tsx                  # Trang chủ (Landing Page khi chưa đăng nhập / Weekly Planner)
+│   └── page.tsx                  # Trang chủ (Guest Landing / Weekly Planner)
 ├── components/
-│   ├── AdminMemberPlansModal.tsx # Modal xem chi tiết món ăn của thành viên
-│   ├── AuthModal.tsx             # Modal Đăng nhập / Đăng ký người dùng
+│   ├── AdminMemberPlansModal.tsx # Modal xem chi tiết món ăn & cấp quyền tuần của thành viên
+│   ├── AuthModal.tsx             # Modal Đăng nhập / Đăng ký người dùng (Thông báo chờ duyệt)
 │   ├── ChangePasswordModal.tsx   # Modal Đổi mật khẩu
-│   ├── DayColumn.tsx             # Cột hiển thị từng ngày trong tuần
-│   ├── DishDetailModal.tsx       # Modal xem chi tiết món ăn & định lượng
+│   ├── DayColumn.tsx             # Cột hiển thị từng ngày (chọn 4-5 món cho bữa trưa & tối)
+│   ├── DishDetailModal.tsx       # Modal xem chi tiết món ăn & định lượng (text đơn vị, không 0g)
 │   ├── GuestHero.tsx             # Giao diện Landing Page khi chưa đăng nhập
-│   ├── Navbar.tsx                # Thanh điều hướng và menu người dùng
-│   ├── ProfileModal.tsx          # Modal Cập nhật hồ sơ thể trạng & BMI
-│   └── WeeklyPlanner.tsx         # Bảng kế hoạch thực đơn tuần
+│   ├── Navbar.tsx                # Thanh điều hướng và menu người dùng (hiển thị chế độ do admin cấp)
+│   ├── ProfileModal.tsx          # Modal Cập nhật hồ sơ thể trạng & BMI (chế độ ăn chỉ định bởi Admin)
+│   └── WeeklyPlanner.tsx         # Bảng kế hoạch thực đơn tuần (mở chọn trước các ngày)
 ├── lib/
 │   ├── auth.ts                   # JWT & Tính toán BMI chuẩn Châu Á
-│   ├── constants.ts              # Dữ liệu món ăn mẫu & cấu hình calo
+│   ├── constants.ts              # Dữ liệu món ăn mẫu, cấu hình calo YH TDTT & format định lượng
 │   └── mongodb.ts                # Kết nối MongoDB Atlas
 ├── models/                       # Mongoose Schemas (User, Dish, DayPlan)
 └── types/                        # TypeScript Interfaces toàn hệ thống

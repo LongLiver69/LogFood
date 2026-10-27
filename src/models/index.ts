@@ -7,12 +7,14 @@ export interface IUser extends Document {
   password: string;
   fullName: string;
   role: 'admin' | 'user';
+  isApproved?: boolean; // Được quản trị viên phê duyệt để đăng nhập
   height?: number; // cm
   weight?: number; // kg
   targetWeight?: number; // kg
   gender?: 'male' | 'female' | 'other';
   age?: number;
   dietPreference?: '1000kcal' | '1200kcal';
+  weeklyDietPreferences?: Map<string, string>; // Phân quyền mức calo theo tuần (ví dụ '2026-W44': '1200kcal')
   createdAt: Date;
   updatedAt: Date;
 }
@@ -23,12 +25,14 @@ const UserSchema = new Schema<IUser>(
     password: { type: String, required: true },
     fullName: { type: String, required: true, trim: true },
     role: { type: String, enum: ['admin', 'user'], default: 'user' },
+    isApproved: { type: Boolean, default: false },
     height: { type: Number, min: 50, max: 250 },
     weight: { type: Number, min: 20, max: 300 },
     targetWeight: { type: Number, min: 20, max: 300 },
     gender: { type: String, enum: ['male', 'female', 'other'], default: 'female' },
     age: { type: Number, min: 10, max: 120 },
     dietPreference: { type: String, enum: ['1000kcal', '1200kcal'], default: '1000kcal' },
+    weeklyDietPreferences: { type: Map, of: String, default: {} },
   },
   { timestamps: true }
 );
@@ -39,8 +43,8 @@ export const User: Model<IUser> =
 // ============ INGREDIENT ============
 export interface IIngredient {
   name: string;
-  rawGrams: number;   // số g sống
-  cookedGrams: number; // số g chín
+  rawGrams?: string | number;   // số g sống
+  cookedGrams?: string | number; // số g chín hoặc đơn vị thường dùng (text)
 }
 
 // ============ DISH (MÓN ĂN) ============
@@ -59,8 +63,8 @@ export interface IDish extends Document {
 
 const IngredientSchema = new Schema<IIngredient>({
   name: { type: String, required: true },
-  rawGrams: { type: Number, required: true },
-  cookedGrams: { type: Number, required: true },
+  rawGrams: { type: Schema.Types.Mixed, default: '' },
+  cookedGrams: { type: Schema.Types.Mixed, default: '' },
 });
 
 const DishSchema = new Schema<IDish>(

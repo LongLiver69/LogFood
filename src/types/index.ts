@@ -1,7 +1,7 @@
 export interface Ingredient {
   name: string;
-  rawGrams: number;
-  cookedGrams: number;
+  rawGrams?: string | number;
+  cookedGrams?: string | number; // số g chín hoặc đơn vị thường dùng (ví dụ: 1 quả, 1 bát, 100g...)
 }
 
 export interface Dish {
@@ -46,12 +46,14 @@ export interface UserProfile {
   email: string;
   fullName: string;
   role: 'admin' | 'user';
+  isApproved?: boolean;
   height?: number;
   weight?: number;
   targetWeight?: number;
   gender?: 'male' | 'female' | 'other';
   age?: number;
   dietPreference?: '1000kcal' | '1200kcal';
+  weeklyDietPreferences?: Record<string, '1000kcal' | '1200kcal'>;
   bmiInfo?: BmiInfo | null;
 }
 

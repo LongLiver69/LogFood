@@ -1,15 +1,42 @@
+// Hàm định dạng số g sống và số g chín / đơn vị thường dùng
+// Bỏ hoàn toàn các trường hợp hiển thị '0g' hoặc '0'
+export function formatIngredientWeight(raw?: string | number, cooked?: string | number): string {
+  const rawStr = raw !== undefined && raw !== null ? String(raw).trim() : '';
+  const cookedStr = cooked !== undefined && cooked !== null ? String(cooked).trim() : '';
+
+  const hasRaw = rawStr !== '' && rawStr !== '0' && rawStr !== '0g';
+  const hasCooked = cookedStr !== '' && cookedStr !== '0' && cookedStr !== '0g';
+
+  if (!hasRaw && !hasCooked) return '';
+
+  const formattedRaw = hasRaw ? (rawStr.toLowerCase().endsWith('g') ? `${rawStr} sống` : `${rawStr}g sống`) : '';
+  const formattedCooked = hasCooked ? (cookedStr.toLowerCase().endsWith('g') ? `${cookedStr} chín` : cookedStr) : '';
+
+  if (hasRaw && hasCooked) {
+    return `${formattedRaw} → ${formattedCooked}`;
+  }
+  if (hasRaw) {
+    return formattedRaw;
+  }
+  return formattedCooked;
+}
+
 // Seed data cho danh sách món ăn
 export const SEED_DISHES = [
-  // ===== BỮA SÁNG (250 Kcal) =====
+  // ==========================================
+  // ===== CHẾ ĐỘ 1000 KCAL (250 - 350 - 100 - 300) =====
+  // ==========================================
+
+  // --- BỮA SÁNG (250 Kcal) ---
   {
     name: 'Cháo yến mạch sữa',
     calories: 250,
     meal: 'breakfast',
     dietType: '1000kcal',
     ingredients: [
-      { name: 'Yến mạch', rawGrams: 50, cookedGrams: 150 },
-      { name: 'Sữa tươi không đường', rawGrams: 100, cookedGrams: 100 },
-      { name: 'Chuối', rawGrams: 60, cookedGrams: 60 },
+      { name: 'Yến mạch', rawGrams: 50, cookedGrams: '1 bát nhỏ (150g)' },
+      { name: 'Sữa tươi không đường', rawGrams: 100, cookedGrams: '100ml' },
+      { name: 'Chuối', rawGrams: 60, cookedGrams: 'nửa quả' },
     ],
     cookingInstructions: 'Nấu yến mạch với sữa và 100ml nước trong 5 phút. Cho chuối thái lát lên trên. Ăn nóng.',
   },
@@ -19,23 +46,11 @@ export const SEED_DISHES = [
     meal: 'breakfast',
     dietType: '1000kcal',
     ingredients: [
-      { name: 'Bánh mì nguyên cám', rawGrams: 60, cookedGrams: 60 },
-      { name: 'Trứng gà', rawGrams: 60, cookedGrams: 55 },
-      { name: 'Rau xà lách', rawGrams: 30, cookedGrams: 30 },
+      { name: 'Bánh mì nguyên cám', rawGrams: 60, cookedGrams: '2 lát' },
+      { name: 'Trứng gà', rawGrams: 60, cookedGrams: '1 quả luộc' },
+      { name: 'Rau xà lách', rawGrams: 30, cookedGrams: 'vừa ăn' },
     ],
-    cookingInstructions: 'Luộc trứng 8 phút. Kẹp trứng với rau vào bánh mì. Ăn kèm 1 ly nước lọc.',
-  },
-  {
-    name: 'Sinh tố chuối + hạt chia',
-    calories: 240,
-    meal: 'breakfast',
-    dietType: '1000kcal',
-    ingredients: [
-      { name: 'Chuối', rawGrams: 100, cookedGrams: 100 },
-      { name: 'Sữa chua không đường', rawGrams: 100, cookedGrams: 100 },
-      { name: 'Hạt chia', rawGrams: 10, cookedGrams: 10 },
-    ],
-    cookingInstructions: 'Xay chuối với sữa chua, thêm hạt chia. Để ngăn mát 30 phút trước khi uống.',
+    cookingInstructions: 'Luộc trứng 8 phút. Kẹp trứng với rau vào bánh mì. Ăn kèm 1 ly nước ấm.',
   },
   {
     name: 'Phở bò ít mỡ',
@@ -43,212 +58,370 @@ export const SEED_DISHES = [
     meal: 'breakfast',
     dietType: '1000kcal',
     ingredients: [
-      { name: 'Bánh phở', rawGrams: 80, cookedGrams: 160 },
-      { name: 'Thịt bò nạc', rawGrams: 40, cookedGrams: 32 },
-      { name: 'Giá đỗ', rawGrams: 30, cookedGrams: 30 },
-      { name: 'Hành lá', rawGrams: 5, cookedGrams: 5 },
+      { name: 'Bánh phở', rawGrams: 80, cookedGrams: '1 bát (160g)' },
+      { name: 'Thịt bò nạc', rawGrams: 50, cookedGrams: '40g chín' },
+      { name: 'Giá đỗ & hành', rawGrams: 30, cookedGrams: 'vừa ăn' },
     ],
-    cookingInstructions: 'Chần bánh phở. Thái thịt bò mỏng, trụng qua nước dùng. Cho giá và hành vào tô, chan nước dùng nóng.',
+    cookingInstructions: 'Chần bánh phở. Trụng thịt bò chín tới qua nước dùng trong. Chan nước dùng nóng.',
+  },
+
+  // --- BỮA TRƯA (350 Kcal - Chia 4-5 món) ---
+  {
+    name: 'Cơm gạo lứt huyết rồng',
+    calories: 130,
+    meal: 'lunch',
+    dietType: '1000kcal',
+    ingredients: [
+      { name: 'Gạo lứt huyết rồng', rawGrams: 40, cookedGrams: '1 bát nhỏ (120g)' },
+    ],
+    cookingInstructions: 'Ngâm gạo lứt 30 phút, nấu chín dẻo.',
   },
   {
-    name: 'Trứng bác rau củ',
-    calories: 245,
+    name: 'Ức gà áp chảo sốt tiêu chanh',
+    calories: 120,
+    meal: 'lunch',
+    dietType: '1000kcal',
+    ingredients: [
+      { name: 'Ức gà nạc', rawGrams: 90, cookedGrams: '70g chín' },
+      { name: 'Dầu ô-liu', rawGrams: '', cookedGrams: 'nửa thìa cà phê' },
+      { name: 'Tiêu & cốt chanh', rawGrams: '', cookedGrams: 'vừa ăn' },
+    ],
+    cookingInstructions: 'Ướp ức gà với chút tiêu, áp chảo chín vàng 2 mặt, vắt chanh thưởng thức.',
+  },
+  {
+    name: 'Canh rau ngót nấu thịt nạc',
+    calories: 40,
+    meal: 'lunch',
+    dietType: '1000kcal',
+    ingredients: [
+      { name: 'Rau ngót', rawGrams: 70, cookedGrams: '1 bát canh' },
+      { name: 'Thịt băm nạc', rawGrams: 20, cookedGrams: '15g chín' },
+    ],
+    cookingInstructions: 'Nấu sôi nước, cho thịt băm và rau ngót vò nhẹ vào nấu chín, nêm nhạt.',
+  },
+  {
+    name: 'Rau muống xào tỏi ít dầu',
+    calories: 40,
+    meal: 'lunch',
+    dietType: '1000kcal',
+    ingredients: [
+      { name: 'Rau muống non', rawGrams: 100, cookedGrams: '1 đĩa nhỏ' },
+      { name: 'Tỏi băm & dầu ô-liu', rawGrams: '', cookedGrams: '1 tép tỏi' },
+    ],
+    cookingInstructions: 'Luộc sơ rau muống rồi đảo nhanh với tỏi phi thơm, ít dầu.',
+  },
+  {
+    name: 'Dưa chuột thái lát',
+    calories: 20,
+    meal: 'lunch',
+    dietType: '1000kcal',
+    ingredients: [
+      { name: 'Dưa chuột tươi', rawGrams: 150, cookedGrams: '1 quả vừa' },
+    ],
+    cookingInstructions: 'Rửa sạch bằng nước muối loãng, gọt vỏ thái lát ăn tươi.',
+  },
+  {
+    name: 'Cá hồi áp chảo măng tây (Set 4 món)',
+    calories: 350,
+    meal: 'lunch',
+    dietType: '1000kcal',
+    ingredients: [
+      { name: 'Cá hồi Na Uy', rawGrams: 80, cookedGrams: '65g chín' },
+      { name: 'Gạo lứt', rawGrams: 40, cookedGrams: '1 bát nhỏ' },
+      { name: 'Măng tây', rawGrams: 60, cookedGrams: '50g chín' },
+      { name: 'Canh bí xanh tôm', rawGrams: 80, cookedGrams: '1 bát' },
+      { name: 'Cà chua bi', rawGrams: 40, cookedGrams: '4 quả' },
+    ],
+    cookingInstructions: 'Áp chảo cá hồi và măng tây. Ăn kèm cơm gạo lứt và canh bí xanh.',
+  },
+
+  // --- PHỤ CHIỀU (100 Kcal) ---
+  {
+    name: 'Táo xanh & Hạnh nhân',
+    calories: 100,
+    meal: 'snack',
+    dietType: '1000kcal',
+    ingredients: [
+      { name: 'Táo xanh', rawGrams: 100, cookedGrams: '1 quả nhỏ' },
+      { name: 'Hạt hạnh nhân', rawGrams: '', cookedGrams: '4 hạt' },
+    ],
+    cookingInstructions: 'Rửa sạch táo, ăn cùng 4 hạt hạnh nhân sấy.',
+  },
+  {
+    name: 'Sữa chua không đường hạt chia',
+    calories: 100,
+    meal: 'snack',
+    dietType: '1000kcal',
+    ingredients: [
+      { name: 'Sữa chua không đường', rawGrams: 100, cookedGrams: '1 hộp' },
+      { name: 'Hạt chia hữu cơ', rawGrams: '', cookedGrams: '1 thìa cà phê' },
+    ],
+    cookingInstructions: 'Trộn hạt chia vào sữa chua, để 10 phút cho hạt nở đều.',
+  },
+
+  // --- BỮA TỐI (300 Kcal - Chia 4-5 món) ---
+  {
+    name: 'Khoai lang vàng hấp',
+    calories: 100,
+    meal: 'dinner',
+    dietType: '1000kcal',
+    ingredients: [
+      { name: 'Khoai lang', rawGrams: 90, cookedGrams: '1 củ nhỏ' },
+    ],
+    cookingInstructions: 'Rửa sạch, hấp chín mềm khoảng 20 phút.',
+  },
+  {
+    name: 'Tôm sú hấp sả gừng',
+    calories: 110,
+    meal: 'dinner',
+    dietType: '1000kcal',
+    ingredients: [
+      { name: 'Tôm sú tươi', rawGrams: 100, cookedGrams: '4 con vừa (75g chín)' },
+      { name: 'Sả & gừng', rawGrams: '', cookedGrams: 'vừa thơm' },
+    ],
+    cookingInstructions: 'Xếp tôm lên xửng cùng sả đập dập và gừng thái sợi, hấp 8 phút.',
+  },
+  {
+    name: 'Canh bí đỏ thịt bằm',
+    calories: 45,
+    meal: 'dinner',
+    dietType: '1000kcal',
+    ingredients: [
+      { name: 'Bí đỏ', rawGrams: 70, cookedGrams: '1 bát canh' },
+      { name: 'Thịt nạc băm', rawGrams: 20, cookedGrams: '15g chín' },
+    ],
+    cookingInstructions: 'Nấu bí đỏ mềm với thịt băm, rắc hành ngò thơm.',
+  },
+  {
+    name: 'Bông cải xanh luộc',
+    calories: 30,
+    meal: 'dinner',
+    dietType: '1000kcal',
+    ingredients: [
+      { name: 'Bông cải xanh', rawGrams: 100, cookedGrams: '1 đĩa nhỏ' },
+    ],
+    cookingInstructions: 'Luộc bông cải xanh trong nước sôi 3-4 phút giữ độ giòn ngọt.',
+  },
+  {
+    name: 'Salad dưa chuột cà chua bi',
+    calories: 15,
+    meal: 'dinner',
+    dietType: '1000kcal',
+    ingredients: [
+      { name: 'Dưa chuột', rawGrams: 80, cookedGrams: 'nửa quả' },
+      { name: 'Cà chua bi', rawGrams: 40, cookedGrams: '3-4 quả' },
+    ],
+    cookingInstructions: 'Trộn cùng nước cốt chanh và một chút muối tiêu.',
+  },
+
+  // ==========================================
+  // ===== CHẾ ĐỘ 1200 KCAL (300 - 420 - 120 - 360) =====
+  // ==========================================
+
+  // --- BỮA SÁNG (300 Kcal) ---
+  {
+    name: 'Bánh mì nguyên cám + Trứng ốp la + Bơ',
+    calories: 300,
     meal: 'breakfast',
-    dietType: '1000kcal',
+    dietType: '1200kcal',
     ingredients: [
-      { name: 'Trứng gà', rawGrams: 100, cookedGrams: 90 },
-      { name: 'Cà chua', rawGrams: 50, cookedGrams: 50 },
-      { name: 'Hành tây', rawGrams: 30, cookedGrams: 28 },
-      { name: 'Dầu ô-liu', rawGrams: 5, cookedGrams: 5 },
+      { name: 'Bánh mì nguyên cám', rawGrams: 60, cookedGrams: '2 lát' },
+      { name: 'Trứng gà', rawGrams: 60, cookedGrams: '1 quả ốp la' },
+      { name: 'Quả bơ tươi', rawGrams: 40, cookedGrams: 'vài lát' },
+      { name: 'Cà chua bi', rawGrams: 30, cookedGrams: '3 quả' },
     ],
-    cookingInstructions: 'Xào cà chua và hành với dầu ô-liu. Đổ trứng đánh vào, khuấy đều đến khi chín.',
-  },
-  // ===== BỮA TRƯA (350 Kcal) =====
-  {
-    name: 'Cơm gạo lứt + ức gà luộc + rau muống xào tỏi',
-    calories: 350,
-    meal: 'lunch',
-    dietType: '1000kcal',
-    ingredients: [
-      { name: 'Gạo lứt', rawGrams: 60, cookedGrams: 180 },
-      { name: 'Ức gà', rawGrams: 80, cookedGrams: 64 },
-      { name: 'Rau muống', rawGrams: 100, cookedGrams: 80 },
-      { name: 'Tỏi', rawGrams: 5, cookedGrams: 5 },
-    ],
-    cookingInstructions: 'Vo gạo lứt và nấu cơm. Luộc ức gà 15 phút với sả và gừng. Xào rau muống với tỏi phi vàng.',
+    cookingInstructions: 'Áp chảo trứng với chút dầu ô-liu. Kẹp trứng, bơ và cà chua vào bánh mì nướng giòn.',
   },
   {
-    name: 'Bún bò nạm hầm rau củ',
-    calories: 350,
-    meal: 'lunch',
-    dietType: '1000kcal',
-    ingredients: [
-      { name: 'Bún tươi', rawGrams: 100, cookedGrams: 100 },
-      { name: 'Thịt bò nạm', rawGrams: 50, cookedGrams: 40 },
-      { name: 'Cà rốt', rawGrams: 40, cookedGrams: 38 },
-      { name: 'Khoai tây', rawGrams: 50, cookedGrams: 48 },
-    ],
-    cookingInstructions: 'Hầm bò với cà rốt và khoai tây 45 phút. Chan nước dùng lên bún. Thêm hành ngò.',
-  },
-  {
-    name: 'Cơm trắng + cá hồi áp chảo + canh bí đỏ',
-    calories: 355,
-    meal: 'lunch',
-    dietType: '1000kcal',
-    ingredients: [
-      { name: 'Gạo trắng', rawGrams: 55, cookedGrams: 165 },
-      { name: 'Cá hồi', rawGrams: 70, cookedGrams: 56 },
-      { name: 'Bí đỏ', rawGrams: 80, cookedGrams: 75 },
-      { name: 'Hành lá', rawGrams: 5, cookedGrams: 5 },
-    ],
-    cookingInstructions: 'Ướp cá hồi muối tiêu 10 phút, áp chảo 3 phút mỗi mặt. Nấu canh bí đỏ với hành.',
-  },
-  {
-    name: 'Mì udon gà rau cải',
-    calories: 345,
-    meal: 'lunch',
-    dietType: '1000kcal',
-    ingredients: [
-      { name: 'Mì udon', rawGrams: 100, cookedGrams: 200 },
-      { name: 'Ức gà', rawGrams: 60, cookedGrams: 48 },
-      { name: 'Cải xanh', rawGrams: 80, cookedGrams: 70 },
-      { name: 'Nấm hương', rawGrams: 30, cookedGrams: 28 },
-    ],
-    cookingInstructions: 'Luộc mì udon. Nấu nước dùng gà, cho cải và nấm vào. Chan lên mì.',
-  },
-  {
-    name: 'Cơm gạo lứt + đậu hũ sốt cà chua + rau cải luộc',
-    calories: 350,
-    meal: 'lunch',
-    dietType: '1000kcal',
-    ingredients: [
-      { name: 'Gạo lứt', rawGrams: 55, cookedGrams: 165 },
-      { name: 'Đậu hũ cứng', rawGrams: 100, cookedGrams: 90 },
-      { name: 'Cà chua', rawGrams: 60, cookedGrams: 58 },
-      { name: 'Rau cải', rawGrams: 100, cookedGrams: 85 },
-    ],
-    cookingInstructions: 'Chiên đậu hũ vàng, sốt cà chua thái hạt lựu. Luộc rau cải. Ăn kèm cơm gạo lứt.',
-  },
-  // ===== PHỤ CHIỀU (100 Kcal) =====
-  {
-    name: 'Táo + hạnh nhân',
-    calories: 100,
-    meal: 'snack',
-    dietType: '1000kcal',
-    ingredients: [
-      { name: 'Táo xanh', rawGrams: 100, cookedGrams: 100 },
-      { name: 'Hạnh nhân', rawGrams: 10, cookedGrams: 10 },
-    ],
-    cookingInstructions: 'Rửa táo sạch, ăn cùng hạnh nhân. Nên ăn trước bữa tối 3 tiếng.',
-  },
-  {
-    name: 'Sữa chua không đường',
-    calories: 95,
-    meal: 'snack',
-    dietType: '1000kcal',
-    ingredients: [
-      { name: 'Sữa chua không đường', rawGrams: 150, cookedGrams: 150 },
-    ],
-    cookingInstructions: 'Ăn trực tiếp hoặc thêm vài lát dâu tây để tăng hương vị.',
-  },
-  {
-    name: 'Chuối + hạt chia',
-    calories: 100,
-    meal: 'snack',
-    dietType: '1000kcal',
-    ingredients: [
-      { name: 'Chuối', rawGrams: 80, cookedGrams: 80 },
-      { name: 'Hạt chia', rawGrams: 5, cookedGrams: 5 },
-    ],
-    cookingInstructions: 'Thái chuối lát, rắc hạt chia lên trên.',
-  },
-  {
-    name: 'Dưa leo + hummus',
-    calories: 100,
-    meal: 'snack',
-    dietType: '1000kcal',
-    ingredients: [
-      { name: 'Dưa leo', rawGrams: 100, cookedGrams: 100 },
-      { name: 'Hummus (đậu xanh nghiền)', rawGrams: 30, cookedGrams: 30 },
-    ],
-    cookingInstructions: 'Thái dưa leo thành que, chấm với hummus.',
-  },
-  {
-    name: 'Trứng luộc',
-    calories: 90,
-    meal: 'snack',
-    dietType: '1000kcal',
-    ingredients: [
-      { name: 'Trứng gà', rawGrams: 60, cookedGrams: 55 },
-    ],
-    cookingInstructions: 'Luộc trứng 8 phút, bóc vỏ ăn trực tiếp.',
-  },
-  // ===== BỮA TỐI (300 Kcal) =====
-  {
-    name: 'Súp gà rau củ ít tinh bột',
+    name: 'Phở bò tái nạm dinh dưỡng',
     calories: 300,
-    meal: 'dinner',
-    dietType: '1000kcal',
+    meal: 'breakfast',
+    dietType: '1200kcal',
     ingredients: [
-      { name: 'Ức gà', rawGrams: 80, cookedGrams: 64 },
-      { name: 'Khoai lang', rawGrams: 60, cookedGrams: 58 },
-      { name: 'Cà rốt', rawGrams: 50, cookedGrams: 48 },
-      { name: 'Súp lơ xanh', rawGrams: 60, cookedGrams: 55 },
+      { name: 'Bánh phở tươi', rawGrams: 100, cookedGrams: '1 tô (180g)' },
+      { name: 'Thịt bò nạc', rawGrams: 70, cookedGrams: '55g chín' },
+      { name: 'Hành hoa & giá đỗ', rawGrams: 40, cookedGrams: '1 nhúm' },
     ],
-    cookingInstructions: 'Hầm gà với rau củ 30 phút. Nêm muối và tiêu vừa ăn. Ăn nóng.',
+    cookingInstructions: 'Chần bánh phở nóng. Trụng thịt bò chín tới, chan nước hầm xương thanh ngọt.',
   },
   {
-    name: 'Salad cá ngừ + quinoa',
-    calories: 295,
-    meal: 'dinner',
-    dietType: '1000kcal',
-    ingredients: [
-      { name: 'Cá ngừ đóng hộp (trong nước)', rawGrams: 80, cookedGrams: 80 },
-      { name: 'Quinoa', rawGrams: 40, cookedGrams: 100 },
-      { name: 'Xà lách', rawGrams: 50, cookedGrams: 50 },
-      { name: 'Cà chua bi', rawGrams: 50, cookedGrams: 50 },
-      { name: 'Dầu ô-liu', rawGrams: 5, cookedGrams: 5 },
-    ],
-    cookingInstructions: 'Nấu quinoa theo hướng dẫn. Trộn cá ngừ, rau và quinoa. Thêm dầu ô-liu và chanh.',
-  },
-  {
-    name: 'Cơm gạo lứt + tôm hấp + rau xanh',
+    name: 'Yến mạch sữa hạt & Hạt óc chó',
     calories: 300,
-    meal: 'dinner',
-    dietType: '1000kcal',
+    meal: 'breakfast',
+    dietType: '1200kcal',
     ingredients: [
-      { name: 'Gạo lứt', rawGrams: 45, cookedGrams: 135 },
-      { name: 'Tôm sú', rawGrams: 80, cookedGrams: 60 },
-      { name: 'Rau cải xanh', rawGrams: 100, cookedGrams: 85 },
+      { name: 'Yến mạch cán dẹt', rawGrams: 55, cookedGrams: '1 bát' },
+      { name: 'Sữa hạt hạnh nhân', rawGrams: 120, cookedGrams: '120ml' },
+      { name: 'Quả óc chó', rawGrams: '', cookedGrams: '2 hạt' },
+      { name: 'Quả việt quất / chuối', rawGrams: 40, cookedGrams: 'vài quả' },
     ],
-    cookingInstructions: 'Nấu cơm gạo lứt. Hấp tôm với sả 10 phút. Xào rau với tỏi.',
+    cookingInstructions: 'Nấu yến mạch với sữa hạt 5 phút. Thêm hạt óc chó và trái cây tươi.',
+  },
+
+  // --- BỮA TRƯA (420 Kcal - Chia 4-5 món) ---
+  {
+    name: 'Cơm gạo lứt huyết rồng',
+    calories: 140,
+    meal: 'lunch',
+    dietType: '1200kcal',
+    ingredients: [
+      { name: 'Gạo lứt', rawGrams: 50, cookedGrams: '1 bát vừa (150g)' },
+    ],
+    cookingInstructions: 'Nấu cơm gạo lứt dẻo thơm, ăn khi còn ấm.',
   },
   {
-    name: 'Canh chua cá lóc',
-    calories: 300,
-    meal: 'dinner',
-    dietType: '1000kcal',
+    name: 'Thịt bò xào măng tây ít dầu',
+    calories: 150,
+    meal: 'lunch',
+    dietType: '1200kcal',
     ingredients: [
-      { name: 'Cá lóc', rawGrams: 100, cookedGrams: 75 },
-      { name: 'Cà chua', rawGrams: 60, cookedGrams: 58 },
-      { name: 'Dứa', rawGrams: 40, cookedGrams: 40 },
-      { name: 'Rau muống', rawGrams: 50, cookedGrams: 45 },
-      { name: 'Gạo lứt', rawGrams: 40, cookedGrams: 120 },
+      { name: 'Thịt thăn bò', rawGrams: 90, cookedGrams: '75g chín' },
+      { name: 'Măng tây xanh', rawGrams: 70, cookedGrams: '50g chín' },
+      { name: 'Tỏi băm & tiêu', rawGrams: '', cookedGrams: 'vừa ăn' },
     ],
-    cookingInstructions: 'Phi tỏi, cho cà chua và dứa vào xào. Thêm nước, đun sôi, cho cá vào. Cuối cùng cho rau muống.',
+    cookingInstructions: 'Thái mỏng thịt bò, xào nhanh lửa lớn với măng tây và tỏi phi.',
   },
   {
-    name: 'Đậu phụ hấp nước tương + rau luộc',
-    calories: 295,
-    meal: 'dinner',
-    dietType: '1000kcal',
+    name: 'Canh bí xanh nấu tôm tươi',
+    calories: 45,
+    meal: 'lunch',
+    dietType: '1200kcal',
     ingredients: [
-      { name: 'Đậu phụ non', rawGrams: 150, cookedGrams: 145 },
-      { name: 'Gạo lứt', rawGrams: 40, cookedGrams: 120 },
-      { name: 'Bông cải xanh', rawGrams: 80, cookedGrams: 75 },
-      { name: 'Nước tương ít muối', rawGrams: 10, cookedGrams: 10 },
+      { name: 'Bí xanh (bí đao)', rawGrams: 100, cookedGrams: '1 bát canh' },
+      { name: 'Tôm nõn giã nhỏ', rawGrams: 25, cookedGrams: '20g chín' },
+      { name: 'Hành hoa & ngò gai', rawGrams: '', cookedGrams: 'vừa ăn' },
     ],
-    cookingInstructions: 'Hấp đậu phụ 8 phút. Luộc bông cải. Chan nước tương pha tỏi ớt lên đậu phụ.',
+    cookingInstructions: 'Xào sơ tôm, cho bí xanh vào nấu sôi 3 phút, nêm thanh nhẹ.',
+  },
+  {
+    name: 'Đậu cove xào nấm đùi gà',
+    calories: 55,
+    meal: 'lunch',
+    dietType: '1200kcal',
+    ingredients: [
+      { name: 'Đậu cove non', rawGrams: 80, cookedGrams: '1 đĩa nhỏ' },
+      { name: 'Nấm đùi gà', rawGrams: 50, cookedGrams: '45g chín' },
+      { name: 'Dầu ô-liu', rawGrams: '', cookedGrams: '1 thìa cà phê' },
+    ],
+    cookingInstructions: 'Xào nấm và đậu cove vừa chín tới giữ độ giòn ngọt.',
+  },
+  {
+    name: 'Dưa chuột thái lát & Cà chua',
+    calories: 30,
+    meal: 'lunch',
+    dietType: '1200kcal',
+    ingredients: [
+      { name: 'Dưa chuột', rawGrams: 150, cookedGrams: '1 quả vừa' },
+      { name: 'Cà chua bi', rawGrams: 50, cookedGrams: '4 quả' },
+    ],
+    cookingInstructions: 'Rửa sạch, gọt vỏ thái lát ăn kèm bữa ăn.',
+  },
+  {
+    name: 'Cá hồi áp chảo sốt bơ chanh (Set 5 món đầy đủ)',
+    calories: 420,
+    meal: 'lunch',
+    dietType: '1200kcal',
+    ingredients: [
+      { name: 'Cá hồi Na Uy', rawGrams: 90, cookedGrams: '75g chín' },
+      { name: 'Cơm gạo lứt', rawGrams: 45, cookedGrams: '1 bát con' },
+      { name: 'Canh cải ngọt thịt nạc', rawGrams: 80, cookedGrams: '1 bát' },
+      { name: 'Bông cải xanh & cà rốt', rawGrams: 80, cookedGrams: '1 đĩa' },
+      { name: 'Dưa chuột', rawGrams: 100, cookedGrams: '1 quả' },
+    ],
+    cookingInstructions: 'Áp chảo cá hồi sốt bơ chanh, ăn kèm 4 món phụ dinh dưỡng cân bằng.',
+  },
+
+  // --- PHỤ CHIỀU (120 Kcal) ---
+  {
+    name: 'Sữa chua Hy Lạp + Hạt dẻ cười',
+    calories: 120,
+    meal: 'snack',
+    dietType: '1200kcal',
+    ingredients: [
+      { name: 'Sữa chua Hy Lạp', rawGrams: 120, cookedGrams: '1 hũ' },
+      { name: 'Hạt dẻ cười bóc vỏ', rawGrams: '', cookedGrams: '6 hạt' },
+    ],
+    cookingInstructions: 'Ăn sữa chua Hy Lạp kèm hạt dẻ cười để bổ sung đạm và chất béo tốt.',
+  },
+  {
+    name: 'Chuối tiêu & Bơ đậu phộng',
+    calories: 120,
+    meal: 'snack',
+    dietType: '1200kcal',
+    ingredients: [
+      { name: 'Chuối tiêu chín', rawGrams: 80, cookedGrams: '1 quả vừa' },
+      { name: 'Bơ đậu phộng nguyên chất', rawGrams: '', cookedGrams: '1 thìa cà phê' },
+    ],
+    cookingInstructions: 'Cắt lát chuối và phết nhẹ bơ đậu phộng thưởng thức.',
+  },
+
+  // --- BỮA TỐI (360 Kcal - Chia 4-5 món) ---
+  {
+    name: 'Khoai lang Nhật hấp mật',
+    calories: 120,
+    meal: 'dinner',
+    dietType: '1200kcal',
+    ingredients: [
+      { name: 'Khoai lang Nhật', rawGrams: 110, cookedGrams: '1 củ vừa' },
+    ],
+    cookingInstructions: 'Hấp chín mềm ngọt tự nhiên, không thêm đường.',
+  },
+  {
+    name: 'Ức gà nướng thảo mộc',
+    calories: 130,
+    meal: 'dinner',
+    dietType: '1200kcal',
+    ingredients: [
+      { name: 'Ức gà tươi', rawGrams: 100, cookedGrams: '80g chín' },
+      { name: 'Lá hương thảo & dầu ô-liu', rawGrams: '', cookedGrams: 'vừa ăn' },
+    ],
+    cookingInstructions: 'Ướp ức gà với hương thảo và muối tiêu, nướng nồi chiên không dầu 15 phút.',
+  },
+  {
+    name: 'Canh rong biển đậu phụ non',
+    calories: 45,
+    meal: 'dinner',
+    dietType: '1200kcal',
+    ingredients: [
+      { name: 'Rong biển khô', rawGrams: 10, cookedGrams: '1 bát canh' },
+      { name: 'Đậu phụ non', rawGrams: 60, cookedGrams: 'nửa bìa' },
+      { name: 'Thịt nạc băm', rawGrams: 15, cookedGrams: '12g chín' },
+    ],
+    cookingInstructions: 'Nấu nước dùng ngọt thanh, cho rong biển và đậu phụ non vào đun sôi nhẹ.',
+  },
+  {
+    name: 'Rau cải ngồng luộc chấm kho quẹt nhẹ',
+    calories: 40,
+    meal: 'dinner',
+    dietType: '1200kcal',
+    ingredients: [
+      { name: 'Cải ngồng non', rawGrams: 120, cookedGrams: '1 đĩa' },
+    ],
+    cookingInstructions: 'Luộc cải ngồng vừa chín tới giữ màu xanh tươi.',
+  },
+  {
+    name: 'Dưa chuột thái lát tươi',
+    calories: 25,
+    meal: 'dinner',
+    dietType: '1200kcal',
+    ingredients: [
+      { name: 'Dưa chuột', rawGrams: 150, cookedGrams: '1 quả' },
+    ],
+    cookingInstructions: 'Rửa sạch thái lát ăn kèm bữa tối thanh nhẹ.',
+  },
+  {
+    name: 'Tôm sú rim mặn ngọt & Rau luộc (Set 5 món)',
+    calories: 360,
+    meal: 'dinner',
+    dietType: '1200kcal',
+    ingredients: [
+      { name: 'Tôm sú', rawGrams: 110, cookedGrams: '85g chín' },
+      { name: 'Cơm gạo lứt', rawGrams: 40, cookedGrams: '1 bát nhỏ' },
+      { name: 'Canh bí đỏ thịt bằm', rawGrams: 80, cookedGrams: '1 bát' },
+      { name: 'Bông cải luộc', rawGrams: 80, cookedGrams: '1 đĩa' },
+      { name: 'Dưa chuột', rawGrams: 100, cookedGrams: '1 quả' },
+    ],
+    cookingInstructions: 'Tôm rim nhạt, ăn kèm cơm gạo lứt, canh bí đỏ và rau xanh.',
   },
 ];
 
@@ -259,6 +432,8 @@ export const MEAL_LABELS: Record<string, string> = {
   dinner: 'Bữa Tối',
 };
 
+// Cấu hình định mức calo theo bữa
+// Chế độ 1200 Kcal: 4 bữa chuẩn 300 - 420 - 120 - 360 (Theo YH TDTT)
 export const MEAL_CALORIES: Record<string, Record<string, number>> = {
   '1000kcal': {
     breakfast: 250,
@@ -268,9 +443,9 @@ export const MEAL_CALORIES: Record<string, Record<string, number>> = {
   },
   '1200kcal': {
     breakfast: 300,
-    lunch: 400,
-    snack: 150,
-    dinner: 350,
+    lunch: 420,
+    snack: 120,
+    dinner: 360,
   },
 };
 
