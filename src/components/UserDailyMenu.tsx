@@ -16,6 +16,7 @@ import {
   Layers,
   CheckCircle2,
   AlertCircle,
+  RotateCw,
 } from 'lucide-react';
 import { Dish, DayPlan, UserProfile } from '@/types';
 import {
@@ -42,6 +43,41 @@ interface UserDailyMenuProps {
   dayPlans: DayPlan[];
   isLoading: boolean;
   currentUser: UserProfile;
+  onRefresh?: () => void;
+}
+
+// Khớp ngày an toàn giữa chuỗi ISO / UTC trong MongoDB và local date
+function matchesDay(planDate: string | Date | undefined, targetDate: Date): boolean {
+  if (!planDate) return false;
+  const pDate = new Date(planDate);
+  if (isSameDay(pDate, targetDate)) return true;
+  const targetStr = format(targetDate, 'yyyy-MM-dd');
+  const planIsoStr = typeof planDate === 'string' ? planDate.substring(0, 10) : pDate.toISOString().substring(0, 10);
+  return targetStr === planIsoStr;
+}
+
+// Giải phóng chi tiết món ăn (fallback nếu dishDetail chưa được tải nhưng có dishName)
+function resolveDish(
+  selection: { meal: string; dishId: any; dishName: string; dishDetail?: Dish } | undefined,
+  dietType: string,
+  mealKey: string
+): Dish | null {
+  if (!selection) return null;
+  if (selection.dishDetail) return selection.dishDetail;
+  if (selection.dishName) {
+    return {
+      _id: String(selection.dishId || 'temp'),
+      name: selection.dishName,
+      meal: mealKey as any,
+      dietType: (dietType || '1000kcal') as any,
+      category: 'family',
+      calories: 0,
+      ingredients: [],
+      dishComponents: [],
+      cookingInstructions: '',
+    };
+  }
+  return null;
 }
 
 export default function UserDailyMenu({
@@ -54,6 +90,7 @@ export default function UserDailyMenu({
   dayPlans,
   isLoading,
   currentUser,
+  onRefresh,
 }: UserDailyMenuProps) {
   // Mặc định chọn ngày hôm nay nếu nằm trong tuần hiện tại, ngược lại chọn ngày đầu tuần (Thứ 2)
   const today = useMemo(() => new Date(), []);
@@ -77,14 +114,9 @@ export default function UserDailyMenu({
     return selectedDate;
   }, [weekDays, selectedDate, today]);
 
-  // Tìm DayPlan của activeDate
+  // Tìm DayPlan của activeDate (khớp an toàn cả local date và UTC ISO)
   const currentDayPlan = useMemo(() => {
-    return (
-      dayPlans.find((p) => {
-        const pDate = new Date(p.date);
-        return isSameDay(pDate, activeDate);
-      }) || null
-    );
+    return dayPlans.find((p) => matchesDay(p.date, activeDate)) || null;
   }, [dayPlans, activeDate]);
 
   // Định mức calo chuẩn theo bữa
@@ -93,10 +125,10 @@ export default function UserDailyMenu({
 
   // Tổng calo thực tế hôm nay
   const totalActualCal =
-    currentDayPlan?.selections?.reduce(
-      (sum, s) => sum + (s.dishDetail?.calories || 0),
-      0
-    ) || 0;
+    currentDayPlan?.selections?.reduce((sum, s) => {
+      const d = resolveDish(s, dietType, s.meal);
+      return sum + (d?.calories || 0);
+    }, 0) || 0;
 
   return (
     <div className="space-y-6 animate-fade-in max-w-6xl mx-auto">
@@ -163,6 +195,16 @@ export default function UserDailyMenu({
             >
               Tuần sau <ChevronRight size={16} />
             </button>
+            {onRefresh && (
+              <button
+                onClick={onRefresh}
+                title="Làm mới thực đơn từ máy chủ"
+                className="btn-ghost text-xs py-1.5 px-2.5 flex items-center gap-1 text-cyan-400 hover:text-cyan-300 hover:bg-cyan-500/10 border-cyan-500/30"
+              >
+                <RotateCw size={14} className={isLoading ? 'animate-spin' : ''} />
+                <span className="hidden sm:inline">Làm mới</span>
+              </button>
+            )}
           </div>
 
           {/* Quick Day Selector Pills (T2 -> CN) */}
@@ -171,7 +213,7 @@ export default function UserDailyMenu({
               const isSelected = isSameDay(day, activeDate);
               const isCurrentDay = isSameDay(day, today);
               const dayIndex = day.getDay();
-              const dayPlanForThis = dayPlans.find((p) => isSameDay(new Date(p.date), day));
+              const dayPlanForThis = dayPlans.find((p) => matchesDay(p.date, day));
               const hasMeals = (dayPlanForThis?.selections?.length || 0) > 0;
 
               return (
@@ -191,12 +233,14 @@ export default function UserDailyMenu({
                 >
                   <span className="text-[10px] uppercase opacity-80">{DAY_LABELS[dayIndex]}</span>
                   <span className="text-sm font-black mt-0.5">{format(day, 'd')}</span>
-                  {isCurrentDay && (
-                    <span className="w-1.5 h-1.5 rounded-full bg-cyan-300 mt-1"></span>
-                  )}
-                  {hasMeals && !isCurrentDay && (
-                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 mt-1"></span>
-                  )}
+                  <div className="flex items-center gap-1 mt-1">
+                    {isCurrentDay && (
+                      <span className="w-1.5 h-1.5 rounded-full bg-cyan-300" title="Hôm nay"></span>
+                    )}
+                    {hasMeals && (
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" title="Đã có món ăn"></span>
+                    )}
+                  </div>
                 </button>
               );
             })}
@@ -247,8 +291,7 @@ export default function UserDailyMenu({
           <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
             {MEAL_ORDER.map((mealKey) => {
               const selection = currentDayPlan?.selections?.find((s) => s.meal === mealKey);
-              const dish = selection?.dishDetail;
-              const mealTargetCal = targetCalories[mealKey] || 0;
+              const dish = resolveDish(selection, dietType, mealKey);
               const comps = dish ? getDishComponents(dish) : [];
 
               return (
@@ -262,9 +305,6 @@ export default function UserDailyMenu({
                       <div className="flex items-center gap-2.5">
                         <span className={`px-3 py-1 rounded-full text-xs font-bold border meal-${mealKey}`}>
                           {MEAL_LABELS[mealKey]}
-                        </span>
-                        <span className="text-xs text-slate-400">
-                          (Định mức: {mealTargetCal} kcal)
                         </span>
                       </div>
                       {dish && (
@@ -417,12 +457,12 @@ export default function UserDailyMenu({
         <div className="glass-card p-5 border-white/10 shadow-xl overflow-x-auto">
           <div className="flex gap-4" style={{ minWidth: 'max-content' }}>
             {weekDays.map((day) => {
-              const dayPlan = dayPlans.find((p) => isSameDay(new Date(p.date), day));
+              const dayPlan = dayPlans.find((p) => matchesDay(p.date, day));
               const totalCal =
-                dayPlan?.selections?.reduce(
-                  (sum, s) => sum + (s.dishDetail?.calories || 0),
-                  0
-                ) || 0;
+                dayPlan?.selections?.reduce((sum, s) => {
+                  const d = resolveDish(s, dietType, s.meal);
+                  return sum + (d?.calories || 0);
+                }, 0) || 0;
               const isSelected = isSameDay(day, activeDate);
 
               return (
@@ -455,7 +495,7 @@ export default function UserDailyMenu({
 
                   {MEAL_ORDER.map((mealKey) => {
                     const sel = dayPlan?.selections?.find((s) => s.meal === mealKey);
-                    const dish = sel?.dishDetail;
+                    const dish = resolveDish(sel, dietType, mealKey);
 
                     return (
                       <div

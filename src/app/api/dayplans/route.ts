@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import dbConnect from '@/lib/mongodb';
-import { DayPlan } from '@/models';
+import { DayPlan, Dish } from '@/models';
 import { getUserFromRequest } from '@/lib/auth';
 
 export const dynamic = 'force-dynamic';
@@ -31,8 +31,38 @@ export async function GET(request: NextRequest) {
     if (weekKey) filter.weekKey = weekKey;
 
     const plans = await DayPlan.find(filter).sort({ date: 1 }).lean();
-    return NextResponse.json({ success: true, data: plans });
+
+    // Lấy thông tin chi tiết của tất cả các món ăn (Dish) trong kế hoạch
+    const dishIds = plans.flatMap((dp) => (dp.selections || []).map((s) => s.dishId));
+    const dishes = await Dish.find({ _id: { $in: dishIds } }).lean();
+    const dishMap = new Map(dishes.map((d) => [d._id.toString(), d]));
+
+    const enrichedPlans = plans.map((dp) => ({
+      ...dp,
+      selections: (dp.selections || []).map((s) => {
+        const dishDetail = dishMap.get(s.dishId?.toString()) || null;
+        return {
+          meal: s.meal,
+          dishId: s.dishId,
+          dishName: s.dishName,
+          dishDetail: dishDetail || (s.dishName ? {
+            _id: s.dishId?.toString() || 'temp',
+            name: s.dishName,
+            meal: s.meal,
+            dietType: dp.dietType,
+            category: 'family',
+            calories: 0,
+            ingredients: [],
+            dishComponents: [],
+            cookingInstructions: '',
+          } : null),
+        };
+      }),
+    }));
+
+    return NextResponse.json({ success: true, data: enrichedPlans });
   } catch (error) {
+    console.error('Error fetching dayplans:', error);
     return NextResponse.json({ success: false, error: String(error) }, { status: 500 });
   }
 }
@@ -52,6 +82,11 @@ export async function POST(request: NextRequest) {
 
     // Kiểm tra ngày: nếu ngày trong quá khứ so với hôm nay (bắt đầu ngày) thì không cho chỉnh sửa (áp dụng cho user thường)
     const planDate = new Date(date);
+    const startOfTargetDay = new Date(planDate);
+    startOfTargetDay.setUTCHours(0, 0, 0, 0);
+    const endOfTargetDay = new Date(planDate);
+    endOfTargetDay.setUTCHours(23, 59, 59, 999);
+
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     const checkDate = new Date(planDate);
@@ -60,7 +95,14 @@ export async function POST(request: NextRequest) {
     const isPastDay = checkDate < today;
 
     // Check if plan exists
-    const existing = await DayPlan.findOne({ userId: targetUserId, date: planDate });
+    const existing = await DayPlan.findOne({
+      userId: targetUserId,
+      $or: [
+        { date: planDate },
+        { date: startOfTargetDay },
+        { date: { $gte: startOfTargetDay, $lte: endOfTargetDay } },
+      ],
+    });
 
     if (existing) {
       if (!isAdmin && (existing.isLocked || isPastDay)) {
@@ -84,7 +126,7 @@ export async function POST(request: NextRequest) {
 
     const plan = await DayPlan.create({
       userId: targetUserId,
-      date: planDate,
+      date: startOfTargetDay,
       weekKey,
       dayOfWeek,
       dietType: dietType || '1000kcal',
@@ -93,6 +135,7 @@ export async function POST(request: NextRequest) {
     });
     return NextResponse.json({ success: true, data: plan }, { status: 201 });
   } catch (error) {
+    console.error('Error saving dayplan:', error);
     return NextResponse.json({ success: false, error: String(error) }, { status: 500 });
   }
 }

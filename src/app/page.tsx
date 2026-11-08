@@ -38,9 +38,6 @@ export default function HomePage() {
   const [dayPlans, setDayPlans] = useState<DayPlan[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Client-side cache for day plans
-  const dayPlansCacheRef = useRef<Record<string, DayPlan[]>>({});
-
   // Set week start on client
   useEffect(() => {
     setCurrentWeekStart(startOfWeek(new Date(), { weekStartsOn: 1 }));
@@ -88,24 +85,16 @@ export default function HomePage() {
     }
   }, [currentUser, router]);
 
-  // Load day plans for current week & current regular user with client-side caching
+  // Load day plans for current week & current regular user (always fresh)
   const loadDayPlans = useCallback(async (forceRefresh = false) => {
     if (!currentUser || currentUser.role === 'admin' || !weekKey) return;
-    const cacheKey = `${currentUser._id}_${weekKey}`;
-
-    if (!forceRefresh && dayPlansCacheRef.current[cacheKey]) {
-      setDayPlans(dayPlansCacheRef.current[cacheKey]);
-      setIsLoading(false);
-      return;
-    }
 
     try {
-      setIsLoading(true);
+      if (forceRefresh) setIsLoading(true);
       const res = await fetch(`/api/dayplans?userId=${currentUser._id}&weekKey=${weekKey}`);
       const data = await res.json();
       if (data.success) {
-        dayPlansCacheRef.current[cacheKey] = data.data;
-        setDayPlans(data.data);
+        setDayPlans(data.data || []);
       }
     } catch (err) {
       console.error('Failed to load day plans', err);
@@ -114,17 +103,27 @@ export default function HomePage() {
     }
   }, [weekKey, currentUser]);
 
-  // Load day plans only when weekKey or currentUser changes
+  // Load day plans whenever weekKey or currentUser changes
   useEffect(() => {
     if (currentUser && currentUser.role !== 'admin') {
-      loadDayPlans();
+      loadDayPlans(true);
     }
   }, [currentUser, weekKey, loadDayPlans]);
+
+  // Tự động tải lại thực đơn khi người dùng chuyển lại tab (sau khi Admin vừa lên thực đơn)
+  useEffect(() => {
+    const handleFocus = () => {
+      if (currentUser && currentUser.role !== 'admin') {
+        loadDayPlans();
+      }
+    };
+    window.addEventListener('focus', handleFocus);
+    return () => window.removeEventListener('focus', handleFocus);
+  }, [currentUser, loadDayPlans]);
 
   const handleLogout = async () => {
     try {
       await fetch('/api/auth/logout', { method: 'POST' });
-      dayPlansCacheRef.current = {};
       setCurrentUser(null);
       setDayPlans([]);
     } catch (err) {
@@ -217,6 +216,7 @@ export default function HomePage() {
             dayPlans={dayPlans}
             isLoading={isLoading}
             currentUser={currentUser}
+            onRefresh={() => loadDayPlans(true)}
           />
         )}
       </main>
