@@ -45,15 +45,24 @@ export interface IIngredient {
   name: string;
   rawGrams?: string | number;   // số g sống
   cookedGrams?: string | number; // số g chín hoặc đơn vị thường dùng (text)
+  dishComponent?: string;       // Thuộc món con nào (VD: "Cơm trắng", "Bầu nhồi tôm thịt hấp")
 }
 
-// ============ DISH (MÓN ĂN) ============
+// ============ DISH COMPONENT (MÓN CON / MÓN THÀNH PHẦN TRONG BỮA) ============
+export interface IDishComponent {
+  dishName: string; // Tên món con (VD: "Cơm trắng", "Bầu nhồi tôm thịt hấp", "Bưởi")
+  ingredients: IIngredient[];
+}
+
+// ============ DISH (MÓN ĂN / SET BỮA ĂN) ============
 export interface IDish extends Document {
   _id: mongoose.Types.ObjectId;
   name: string;
   calories: number;
   meal: 'breakfast' | 'lunch' | 'snack' | 'dinner';
   dietType: '1000kcal' | '1200kcal';
+  category: 'family' | 'eatclean'; // 'family': Món cơm gia đình, 'eatclean': Món ăn eatclean
+  dishComponents?: IDishComponent[];
   ingredients: IIngredient[];
   cookingInstructions: string;
   imageUrl?: string;
@@ -65,6 +74,12 @@ const IngredientSchema = new Schema<IIngredient>({
   name: { type: String, required: true },
   rawGrams: { type: Schema.Types.Mixed, default: '' },
   cookedGrams: { type: Schema.Types.Mixed, default: '' },
+  dishComponent: { type: String, default: '' },
+});
+
+const DishComponentSchema = new Schema<IDishComponent>({
+  dishName: { type: String, required: true },
+  ingredients: [IngredientSchema],
 });
 
 const DishSchema = new Schema<IDish>(
@@ -81,6 +96,12 @@ const DishSchema = new Schema<IDish>(
       enum: ['1000kcal', '1200kcal'],
       required: true,
     },
+    category: {
+      type: String,
+      enum: ['family', 'eatclean'],
+      default: 'eatclean',
+    },
+    dishComponents: [DishComponentSchema],
     ingredients: [IngredientSchema],
     cookingInstructions: { type: String, default: '' },
     imageUrl: { type: String },
@@ -88,8 +109,8 @@ const DishSchema = new Schema<IDish>(
   { timestamps: true }
 );
 
-DishSchema.index({ dietType: 1, meal: 1 });
-DishSchema.index({ dietType: 1 });
+DishSchema.index({ dietType: 1, meal: 1, category: 1 });
+DishSchema.index({ dietType: 1, category: 1 });
 
 export const Dish: Model<IDish> =
   mongoose.models.Dish || mongoose.model<IDish>('Dish', DishSchema);
@@ -143,3 +164,72 @@ DayPlanSchema.index({ userId: 1, weekKey: 1 });
 
 export const DayPlan: Model<IDayPlan> =
   mongoose.models.DayPlan || mongoose.model<IDayPlan>('DayPlan', DayPlanSchema);
+
+// ============ BODY METRICS (THEO DÕI CHỈ SỐ CƠ THỂ THEO TUẦN) ============
+export interface IBodyMetricWeek {
+  weekNumber: number; // 1, 2, 3, 4...
+  examDate?: string; // Ngày khám
+  height?: number; // Chiều cao (cm)
+  weight?: number; // Cân nặng (kg)
+  bmi?: number; // BMI (kg/m²)
+  waist?: number; // Vòng eo (cm)
+  abdomen?: number; // Vòng bụng (cm)
+  hip?: number; // Vòng hông (cm)
+  buttocks?: number; // Vòng mông (cm)
+  waistHipRatio?: number; // Tỷ lệ eo hông
+  bodyFatPercentage?: number; // Tỷ lệ mỡ (%)
+  visceralFatPercentage?: number; // Tỷ lệ mỡ tại vùng bụng (%)
+  visceralFatLevel?: number; // Mỡ nội tạng
+  subcutaneousFatPercentage?: number; // % mỡ dưới da
+  muscleMass?: number; // Lượng cơ (kg)
+  skeletalMuscleMass?: number; // Lượng cơ xương (kg)
+  bodyWater?: number; // Lượng nước (kg)
+  bmr?: number; // BMR (Kcal)
+  bodyScore?: number; // Chỉ số điểm cơ thể
+  notes?: string;
+}
+
+export interface IBodyMetric extends Document {
+  _id: mongoose.Types.ObjectId;
+  userId: string;
+  weeks: IBodyMetricWeek[];
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+const BodyMetricWeekSchema = new Schema<IBodyMetricWeek>({
+  weekNumber: { type: Number, required: true },
+  examDate: { type: String, default: '' },
+  height: { type: Number },
+  weight: { type: Number },
+  bmi: { type: Number },
+  waist: { type: Number },
+  abdomen: { type: Number },
+  hip: { type: Number },
+  buttocks: { type: Number },
+  waistHipRatio: { type: Number },
+  bodyFatPercentage: { type: Number },
+  visceralFatPercentage: { type: Number },
+  visceralFatLevel: { type: Number },
+  subcutaneousFatPercentage: { type: Number },
+  muscleMass: { type: Number },
+  skeletalMuscleMass: { type: Number },
+  bodyWater: { type: Number },
+  bmr: { type: Number },
+  bodyScore: { type: Number },
+  notes: { type: String, default: '' },
+});
+
+const BodyMetricSchema = new Schema<IBodyMetric>(
+  {
+    userId: { type: String, required: true, unique: true },
+    weeks: [BodyMetricWeekSchema],
+  },
+  { timestamps: true }
+);
+
+BodyMetricSchema.index({ userId: 1 }, { unique: true });
+
+export const BodyMetric: Model<IBodyMetric> =
+  mongoose.models.BodyMetric || mongoose.model<IBodyMetric>('BodyMetric', BodyMetricSchema);
+

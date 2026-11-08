@@ -5,7 +5,6 @@ import { format, startOfWeek, addDays, getWeek, getYear } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import {
   X,
-  Calendar,
   UtensilsCrossed,
   ChevronLeft,
   ChevronRight,
@@ -13,8 +12,22 @@ import {
   Lock,
   Flame,
   CheckCircle,
+  Plus,
+  RefreshCw,
+  Trash2,
+  Layers,
+  Sparkles,
 } from 'lucide-react';
-import { MEAL_LABELS, MEAL_ORDER, DAY_LABELS, formatIngredientWeight } from '@/lib/constants';
+import { Dish, MealSelection, DayPlan } from '@/types';
+import {
+  MEAL_LABELS,
+  MEAL_ORDER,
+  DAY_LABELS,
+  DISH_CATEGORIES,
+  getDishComponents,
+  formatIngredientWeight,
+} from '@/lib/constants';
+import DishDetailModal from '@/components/DishDetailModal';
 
 interface AdminMemberPlansModalProps {
   userId: string | null;
@@ -37,11 +50,24 @@ export default function AdminMemberPlansModal({ userId, onClose }: AdminMemberPl
   const [data, setData] = useState<{
     user: any;
     availableWeeks: string[];
-    dayPlans: any[];
+    dayPlans: DayPlan[];
   } | null>(null);
   const [error, setError] = useState('');
   const [assignMessage, setAssignMessage] = useState('');
   const [isAssigning, setIsAssigning] = useState(false);
+
+  // Dish Picker modal state
+  const [pickerTarget, setPickerTarget] = useState<{
+    date: Date;
+    dayOfWeek: number;
+    meal: 'breakfast' | 'lunch' | 'snack' | 'dinner';
+  } | null>(null);
+
+  const [availableDishes, setAvailableDishes] = useState<Dish[]>([]);
+  const [pickerCategory, setPickerCategory] = useState<'family' | 'eatclean'>('family');
+  const [pickerSearch, setPickerSearch] = useState('');
+  const [viewDetailDish, setViewDetailDish] = useState<Dish | null>(null);
+  const [isSavingPlan, setIsSavingPlan] = useState(false);
 
   const currentWeekKey = useMemo(() => getWeekKey(selectedWeekStart), [selectedWeekStart]);
   const weekDays = useMemo(() => getWeekDays(selectedWeekStart), [selectedWeekStart]);
@@ -68,6 +94,27 @@ export default function AdminMemberPlansModal({ userId, onClose }: AdminMemberPl
   useEffect(() => {
     loadUserPlans();
   }, [loadUserPlans]);
+
+  const currentWeekDiet =
+    data?.user?.weeklyDietPreferences?.[currentWeekKey] ||
+    data?.user?.dietPreference ||
+    '1000kcal';
+
+  // Load available dishes when diet type changes or picker opens
+  useEffect(() => {
+    async function loadDishesForDiet() {
+      try {
+        const res = await fetch(`/api/dishes?dietType=${currentWeekDiet}`);
+        const json = await res.json();
+        if (json.success && Array.isArray(json.data)) {
+          setAvailableDishes(json.data);
+        }
+      } catch (err) {
+        console.error('Failed to load dishes', err);
+      }
+    }
+    loadDishesForDiet();
+  }, [currentWeekDiet]);
 
   // Jump to week from input date
   const handleDateSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -118,16 +165,128 @@ export default function AdminMemberPlansModal({ userId, onClose }: AdminMemberPl
     }
   };
 
+  // Chọn món cho 1 bữa của thành viên
+  const handleSelectDishForMeal = async (targetDish: Dish) => {
+    if (!userId || !pickerTarget) return;
+    setIsSavingPlan(true);
+
+    try {
+      const targetDateStr = format(pickerTarget.date, 'yyyy-MM-dd');
+
+      // Tìm dayPlan hiện tại của ngày này (nếu có)
+      const existingPlan = data?.dayPlans?.find((p) => {
+        const pDate = new Date(p.date);
+        return pDate.toDateString() === pickerTarget.date.toDateString();
+      });
+
+      // Tạo selection mới
+      const newSelection: MealSelection = {
+        meal: pickerTarget.meal,
+        dishId: targetDish._id,
+        dishName: targetDish.name,
+        dishDetail: targetDish,
+      };
+
+      // Giữ lại các bữa khác, thay thế/thêm bữa này
+      const otherSelections = (existingPlan?.selections || []).filter(
+        (s) => s.meal !== pickerTarget.meal
+      );
+      const updatedSelections = [...otherSelections, newSelection];
+
+      const res = await fetch('/api/dayplans', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId,
+          date: targetDateStr,
+          weekKey: currentWeekKey,
+          dayOfWeek: pickerTarget.dayOfWeek,
+          dietType: currentWeekDiet,
+          selections: updatedSelections,
+        }),
+      });
+
+      const resJson = await res.json();
+      if (resJson.success) {
+        setAssignMessage(`Đã chọn món "${targetDish.name}" cho bữa ${MEAL_LABELS[pickerTarget.meal]}!`);
+        setTimeout(() => setAssignMessage(''), 2500);
+        setPickerTarget(null);
+        await loadUserPlans();
+      } else {
+        alert(resJson.error || 'Không thể lưu món');
+      }
+    } catch (err) {
+      console.error(err);
+      alert('Đã có lỗi xảy ra khi lưu món');
+    } finally {
+      setIsSavingPlan(false);
+    }
+  };
+
+  // Xóa món đã chọn của 1 bữa
+  const handleRemoveMealSelection = async (day: Date, mealKey: string) => {
+    if (!userId) return;
+    if (!confirm(`Bạn có chắc muốn xóa món của bữa ${MEAL_LABELS[mealKey]} ngày ${format(day, 'dd/MM')}?`)) return;
+
+    setIsSavingPlan(true);
+    try {
+      const targetDateStr = format(day, 'yyyy-MM-dd');
+      const existingPlan = data?.dayPlans?.find((p) => {
+        const pDate = new Date(p.date);
+        return pDate.toDateString() === day.toDateString();
+      });
+
+      const updatedSelections = (existingPlan?.selections || []).filter((s) => s.meal !== mealKey);
+
+      const res = await fetch('/api/dayplans', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId,
+          date: targetDateStr,
+          weekKey: currentWeekKey,
+          dayOfWeek: day.getDay(),
+          dietType: currentWeekDiet,
+          selections: updatedSelections,
+        }),
+      });
+
+      const resJson = await res.json();
+      if (resJson.success) {
+        setAssignMessage(`Đã xóa món bữa ${MEAL_LABELS[mealKey]}!`);
+        setTimeout(() => setAssignMessage(''), 2500);
+        await loadUserPlans();
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setIsSavingPlan(false);
+    }
+  };
+
   if (!userId) return null;
 
-  const currentWeekDiet =
-    data?.user?.weeklyDietPreferences?.[currentWeekKey] ||
-    data?.user?.dietPreference ||
-    '1000kcal';
+  // Filter available dishes for picker
+  const filteredPickerDishes = pickerTarget
+    ? availableDishes.filter((d) => {
+        const matchMeal = d.meal === pickerTarget.meal;
+        const matchCategory = (d.category || 'family') === pickerCategory;
+        const matchSearch = pickerSearch.trim()
+          ? d.name.toLowerCase().includes(pickerSearch.toLowerCase())
+          : true;
+        return matchMeal && matchCategory && matchSearch;
+      })
+    : [];
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5" style={{ background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(10px)' }}>
-      <div className="glass-card w-full max-w-6xl animate-fade-in p-5 sm:p-6" style={{ maxHeight: '92vh', overflowY: 'auto' }}>
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4"
+      style={{ background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(10px)' }}
+    >
+      <div
+        className="glass-card w-full max-w-7xl animate-fade-in p-4 sm:p-6 shadow-2xl border-purple-500/30"
+        style={{ maxHeight: '94vh', overflowY: 'auto' }}
+      >
         {/* Header */}
         <div className="flex items-center justify-between pb-4 border-b border-white/10 mb-4">
           <div className="flex items-center gap-3">
@@ -135,17 +294,21 @@ export default function AdminMemberPlansModal({ userId, onClose }: AdminMemberPl
               <UtensilsCrossed size={20} />
             </div>
             <div>
-              <h2 className="text-base font-bold text-white flex items-center gap-2">
-                Xem Thực Đơn Cả Tuần Của Thành Viên
+              <h2 className="text-base sm:text-lg font-bold text-white flex items-center gap-2">
+                Lên Thực Đơn Cho Thành Viên (Admin chỉ định món ăn)
               </h2>
               {data?.user && (
-                <p className="text-xs text-slate-400">
+                <p className="text-xs text-slate-300">
                   Thành viên: <strong className="text-white">{data.user.fullName}</strong> ({data.user.email})
                 </p>
               )}
             </div>
           </div>
-          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-white/10 text-slate-400 hover:text-white">
+          <button
+            onClick={onClose}
+            className="p-2 rounded-xl hover:bg-white/10 text-slate-400 hover:text-white transition-colors"
+            title="Đóng"
+          >
             <X size={20} />
           </button>
         </div>
@@ -183,8 +346,12 @@ export default function AdminMemberPlansModal({ userId, onClose }: AdminMemberPl
                 onChange={(e) => handleAssignDiet(e.target.value as '1000kcal' | '1200kcal')}
                 className="input-dark text-xs py-1 px-2 font-bold text-cyan-300 mt-0.5 cursor-pointer"
               >
-                <option value="1000kcal" style={{ background: '#1e293b' }}>1000 kcal (250 - 350 - 100 - 300)</option>
-                <option value="1200kcal" style={{ background: '#1e293b' }}>1200 kcal (300 - 420 - 120 - 360)</option>
+                <option value="1000kcal" style={{ background: '#1e293b' }}>
+                  1000 kcal (250 - 350 - 100 - 300)
+                </option>
+                <option value="1200kcal" style={{ background: '#1e293b' }}>
+                  1200 kcal (300 - 420 - 120 - 360)
+                </option>
               </select>
               {assignMessage && (
                 <span className="text-[10px] text-emerald-400 block mt-1 font-medium">{assignMessage}</span>
@@ -257,7 +424,7 @@ export default function AdminMemberPlansModal({ userId, onClose }: AdminMemberPl
           </div>
         </div>
 
-        {/* Content: Full Week Meal Grid (7 Columns: T2 -> CN) */}
+        {/* Content: 7 Columns (T2 -> CN) with Admin Selection Buttons */}
         {loading ? (
           <div className="p-16 text-center text-slate-400">
             <div className="w-10 h-10 border-2 border-purple-400 border-t-transparent rounded-full animate-spin mx-auto mb-3" />
@@ -272,23 +439,21 @@ export default function AdminMemberPlansModal({ userId, onClose }: AdminMemberPl
                   return planDate.toDateString() === day.toDateString();
                 });
 
-                const totalCal = dayPlan?.selections?.reduce(
-                  (sum: number, s: any) => sum + (s.dishDetail?.calories || 0),
-                  0
-                ) || 0;
+                const totalCal =
+                  dayPlan?.selections?.reduce(
+                    (sum: number, s: any) => sum + (s.dishDetail?.calories || 0),
+                    0
+                  ) || 0;
 
                 return (
-                  <div key={day.toISOString()} className="flex flex-col gap-2.5 min-w-[220px] w-[220px]">
+                  <div key={day.toISOString()} className="flex flex-col gap-2.5 min-w-[240px] w-[240px]">
                     {/* Day Column Header */}
                     <div className="glass-card p-3 text-center border-white/10">
-                      <div className="text-xs text-slate-400 font-semibold mb-0.5">{DAY_LABELS[day.getDay()]}</div>
+                      <div className="text-xs text-slate-400 font-semibold mb-0.5">
+                        {DAY_LABELS[day.getDay()]}
+                      </div>
                       <div className="text-lg font-black text-white">{format(day, 'd')}</div>
                       <div className="text-[10px] text-slate-500">{format(day, 'MM/yyyy')}</div>
-                      {dayPlan?.isLocked && (
-                        <div className="mt-1 inline-flex items-center gap-1 text-[10px] text-slate-400 bg-white/5 px-2 py-0.5 rounded-full">
-                          <Lock size={10} /> Đã khóa
-                        </div>
-                      )}
                       <div className="mt-2 pt-1.5 border-t border-white/5 flex items-center justify-between text-[11px]">
                         <span className="text-slate-400">Tổng calo:</span>
                         <span className="font-bold text-orange-400">{totalCal} kcal</span>
@@ -297,57 +462,113 @@ export default function AdminMemberPlansModal({ userId, onClose }: AdminMemberPl
 
                     {/* 4 Meals for this day */}
                     {MEAL_ORDER.map((mealKey) => {
-                      const mealSelections = dayPlan?.selections?.filter((s: any) => s.meal === mealKey) || [];
-                      const mealCal = mealSelections.reduce((sum: number, s: any) => sum + (s.dishDetail?.calories || 0), 0);
+                      const mealSelection = dayPlan?.selections?.find((s: any) => s.meal === mealKey);
+                      const dish = mealSelection?.dishDetail;
+                      const comps = dish ? getDishComponents(dish) : [];
 
                       return (
-                        <div key={mealKey} className={`glass-card p-2.5 border meal-${mealKey}`}>
-                          <div className="flex items-center justify-between mb-1">
-                            <span className={`text-[11px] font-bold meal-${mealKey}`}>{MEAL_LABELS[mealKey]}</span>
-                            {mealSelections.length > 0 && (
-                              <span className="text-[10px] text-orange-400 font-semibold">
-                                {mealCal} kcal ({mealSelections.length} món)
+                        <div
+                          key={mealKey}
+                          className={`glass-card p-3 border meal-${mealKey} flex flex-col justify-between`}
+                          style={{ minHeight: '190px' }}
+                        >
+                          <div>
+                            {/* Meal Badge & Calories */}
+                            <div className="flex items-center justify-between mb-2 pb-1.5 border-b border-white/5">
+                              <span className={`text-[11px] font-bold meal-${mealKey}`}>
+                                {MEAL_LABELS[mealKey]}
                               </span>
+                              {dish && (
+                                <span className="text-[11px] text-orange-400 font-bold flex items-center gap-0.5 whitespace-nowrap shrink-0">
+                                  <Flame size={12} />
+                                  {dish.calories} kcal
+                                </span>
+                              )}
+                            </div>
+
+                            {/* Dish Content */}
+                            {dish ? (
+                              <div className="space-y-2">
+                                <div className="text-xs font-bold text-white leading-snug line-clamp-2">
+                                  {dish.name}
+                                </div>
+
+                                {/* Category Tag */}
+                                <div className="inline-block">
+                                  <span
+                                    className={`px-2 py-0.5 rounded text-[10px] font-bold border ${
+                                      dish.category === 'family'
+                                        ? 'bg-amber-500/10 text-amber-300 border-amber-500/20'
+                                        : 'bg-emerald-500/10 text-emerald-300 border-emerald-500/20'
+                                    }`}
+                                  >
+                                    {dish.category === 'family' ? '🍚 Cơm gia đình' : '🥗 Eatclean'}
+                                  </span>
+                                </div>
+
+                                {/* Components Preview */}
+                                {comps.length > 0 && (
+                                  <div className="space-y-1 pt-1.5 border-t border-white/5 text-[10px]">
+                                    {comps.map((c, cIdx) => (
+                                      <div key={cIdx} className="text-slate-300">
+                                        <span className="text-cyan-300 font-semibold">• {c.dishName}: </span>
+                                        <span>
+                                          {c.ingredients?.map((ing, i) => {
+                                            const weight = formatIngredientWeight(ing.rawGrams, ing.cookedGrams);
+                                            return `${ing.name}${weight ? ` (${weight})` : ''}${i < (c.ingredients?.length || 0) - 1 ? ', ' : ''}`;
+                                          })}
+                                        </span>
+                                      </div>
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
+                            ) : (
+                              <div className="text-[11px] text-slate-500 italic py-6 text-center">
+                                Chưa chọn món cho bữa này
+                              </div>
                             )}
                           </div>
 
-                          {mealSelections.length > 0 ? (
-                            <div className="space-y-2">
-                              {mealSelections.map((sel: any, selIdx: number) => (
-                                <div key={selIdx} className="p-1.5 rounded-lg bg-white/5 border border-white/5">
-                                  <div className="text-xs font-semibold text-white leading-tight mb-1 flex items-center justify-between">
-                                    <span>{sel.dishName}</span>
-                                    {sel.dishDetail && (
-                                      <span className="text-[10px] text-orange-400 font-medium ml-1 shrink-0">
-                                        {sel.dishDetail.calories} kcal
-                                      </span>
-                                    )}
-                                  </div>
-                                  {sel.dishDetail?.ingredients && sel.dishDetail.ingredients.length > 0 && (
-                                    <div className="space-y-0.5 pt-1 border-t border-white/5 text-[10px]">
-                                      {sel.dishDetail.ingredients.map((ing: any, i: number) => {
-                                        const weightText = formatIngredientWeight(ing.rawGrams, ing.cookedGrams);
-                                        return (
-                                          <div key={i} className="text-slate-300 flex justify-between gap-1">
-                                            <span className="truncate pr-1">{ing.name}:</span>
-                                            {weightText ? (
-                                              <span className="text-cyan-300 shrink-0 font-medium">
-                                                {weightText}
-                                              </span>
-                                            ) : null}
-                                          </div>
-                                        );
-                                      })}
-                                    </div>
-                                  )}
-                                </div>
-                              ))}
-                            </div>
-                          ) : (
-                            <div className="text-[10px] text-slate-500 italic py-1">
-                              Chưa chọn món
-                            </div>
-                          )}
+                          {/* Action Buttons for Admin */}
+                          <div className="mt-3 pt-2 border-t border-white/5 flex items-center gap-1.5">
+                            {dish ? (
+                              <>
+                                <button
+                                  onClick={() =>
+                                    setPickerTarget({
+                                      date: day,
+                                      dayOfWeek: day.getDay(),
+                                      meal: mealKey as 'breakfast' | 'lunch' | 'snack' | 'dinner',
+                                    })
+                                  }
+                                  className="btn-ghost text-[10px] py-1 px-2 flex-1 justify-center text-cyan-300 border-cyan-500/30 bg-cyan-500/10 hover:bg-cyan-500/20"
+                                >
+                                  <RefreshCw size={11} className="mr-1" /> Đổi món
+                                </button>
+                                <button
+                                  onClick={() => handleRemoveMealSelection(day, mealKey)}
+                                  className="p-1.5 rounded-lg text-red-400 hover:text-red-300 hover:bg-red-500/10 transition-colors"
+                                  title="Xóa món"
+                                >
+                                  <Trash2 size={13} />
+                                </button>
+                              </>
+                            ) : (
+                              <button
+                                onClick={() =>
+                                  setPickerTarget({
+                                    date: day,
+                                    dayOfWeek: day.getDay(),
+                                    meal: mealKey as 'breakfast' | 'lunch' | 'snack' | 'dinner',
+                                  })
+                                }
+                                className="btn-primary text-[10px] py-1.5 px-2 w-full justify-center bg-gradient-to-r from-purple-500 to-indigo-600 shadow-purple-500/20"
+                              >
+                                <Plus size={12} className="mr-1" /> Chọn món
+                              </button>
+                            )}
+                          </div>
                         </div>
                       );
                     })}
@@ -356,6 +577,159 @@ export default function AdminMemberPlansModal({ userId, onClose }: AdminMemberPl
               })}
             </div>
           </div>
+        )}
+
+        {/* Dish Picker Modal for Admin */}
+        {pickerTarget && (
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5"
+            style={{ background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(8px)' }}
+          >
+            <div
+              className="glass-card w-full max-w-3xl animate-fade-in p-5 shadow-2xl border-purple-500/40"
+              style={{ maxHeight: '90vh', overflowY: 'auto' }}
+            >
+              {/* Picker Header */}
+              <div className="flex items-center justify-between pb-3 border-b border-white/10 mb-4">
+                <div>
+                  <h3 className="text-base font-bold text-white flex items-center gap-2">
+                    <UtensilsCrossed size={18} className="text-purple-400" />
+                    <span>
+                      Chọn món cho {MEAL_LABELS[pickerTarget.meal]} ({format(pickerTarget.date, 'EEEE, dd/MM', { locale: vi })})
+                    </span>
+                  </h3>
+                  <p className="text-xs text-slate-400 mt-0.5">
+                    Chế độ: <strong className="text-cyan-300">{currentWeekDiet}</strong>
+                  </p>
+                </div>
+                <button
+                  onClick={() => setPickerTarget(null)}
+                  className="p-1.5 rounded-lg hover:bg-white/10 text-slate-400 hover:text-white"
+                >
+                  <X size={20} />
+                </button>
+              </div>
+
+              {/* Category Filter Pills (Món cơm gia đình vs Món eatclean) */}
+              <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+                <div className="flex rounded-xl p-1 gap-1 bg-white/5 border border-white/10">
+                  <button
+                    onClick={() => setPickerCategory('family')}
+                    className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${
+                      pickerCategory === 'family'
+                        ? 'bg-amber-500 text-slate-900 shadow-lg shadow-amber-500/20'
+                        : 'text-slate-400 hover:text-white'
+                    }`}
+                  >
+                    <span>🍚</span>
+                    <span>{DISH_CATEGORIES.family}</span>
+                  </button>
+                  <button
+                    onClick={() => setPickerCategory('eatclean')}
+                    className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${
+                      pickerCategory === 'eatclean'
+                        ? 'bg-emerald-500 text-slate-900 shadow-lg shadow-emerald-500/20'
+                        : 'text-slate-400 hover:text-white'
+                    }`}
+                  >
+                    <span>🥗</span>
+                    <span>{DISH_CATEGORIES.eatclean}</span>
+                  </button>
+                </div>
+
+                {/* Search in picker */}
+                <div className="flex items-center gap-2 bg-white/5 border border-white/10 rounded-xl px-3 py-1.5 text-xs flex-1 max-w-xs">
+                  <Search size={14} className="text-slate-400 shrink-0" />
+                  <input
+                    className="bg-transparent text-white text-xs outline-none w-full"
+                    placeholder="Tìm tên món ăn..."
+                    value={pickerSearch}
+                    onChange={(e) => setPickerSearch(e.target.value)}
+                  />
+                  {pickerSearch && (
+                    <button onClick={() => setPickerSearch('')} className="text-slate-400 hover:text-white">
+                      <X size={13} />
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* Dishes list */}
+              {filteredPickerDishes.length === 0 ? (
+                <div className="p-12 text-center text-slate-400">
+                  <UtensilsCrossed size={36} className="mx-auto mb-2 opacity-30 text-slate-500" />
+                  <div className="text-sm">Không tìm thấy món ăn nào phù hợp</div>
+                  <div className="text-xs text-slate-500 mt-1">
+                    Hãy thử chuyển tab nhóm món hoặc tạo món mới trong mục &quot;Quản Lý Món Ăn&quot;.
+                  </div>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {filteredPickerDishes.map((dish) => {
+                    const comps = getDishComponents(dish);
+
+                    return (
+                      <div
+                        key={dish._id}
+                        className="p-3.5 rounded-xl border border-white/10 bg-black/25 hover:border-purple-500/40 transition-all flex flex-col justify-between"
+                      >
+                        <div>
+                          <div className="flex items-start justify-between gap-2 mb-1.5">
+                            <h4 className="font-bold text-white text-xs leading-snug">{dish.name}</h4>
+                            <span className="text-orange-400 text-xs font-bold shrink-0">
+                              {dish.calories} kcal
+                            </span>
+                          </div>
+
+                          {/* Components breakdown */}
+                          <div className="space-y-1 text-[11px] text-slate-300 mb-3">
+                            {comps.map((c, cIdx) => (
+                              <div key={cIdx}>
+                                <span className="text-cyan-300 font-semibold">• {c.dishName}: </span>
+                                <span className="text-slate-400">
+                                  {c.ingredients?.map((ing, i) => {
+                                    const w = formatIngredientWeight(ing.rawGrams, ing.cookedGrams);
+                                    return `${ing.name}${w ? ` (${w})` : ''}${i < (c.ingredients?.length || 0) - 1 ? ', ' : ''}`;
+                                  })}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+
+                        <div className="pt-2 border-t border-white/5 flex items-center justify-between gap-2">
+                          <button
+                            type="button"
+                            onClick={() => setViewDetailDish(dish)}
+                            className="text-[11px] text-purple-300 hover:text-white underline"
+                          >
+                            Xem chi tiết định lượng
+                          </button>
+                          <button
+                            type="button"
+                            disabled={isSavingPlan}
+                            onClick={() => handleSelectDishForMeal(dish)}
+                            className="btn-primary text-xs py-1.5 px-3 bg-gradient-to-r from-purple-500 to-indigo-600 shadow-purple-500/20"
+                          >
+                            {isSavingPlan ? 'Đang chọn...' : 'Chọn món này'}
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* View Dish Detail modal (Read-only view) */}
+        {viewDetailDish && (
+          <DishDetailModal
+            dish={viewDetailDish}
+            onClose={() => setViewDetailDish(null)}
+            readOnly={true}
+          />
         )}
       </div>
     </div>

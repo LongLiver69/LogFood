@@ -34,7 +34,20 @@ export async function PUT(request: NextRequest, { params }: Params) {
     await dbConnect();
     const { id } = await params;
     const body = await request.json();
-    const dish = await Dish.findByIdAndUpdate(id, body, { new: true, runValidators: true });
+
+    const payload = { ...body };
+    if (payload.dishComponents && Array.isArray(payload.dishComponents)) {
+      if (!payload.ingredients || payload.ingredients.length === 0) {
+        payload.ingredients = payload.dishComponents.flatMap((c: any) =>
+          (c.ingredients || []).map((ing: any) => ({
+            ...ing,
+            dishComponent: c.dishName,
+          }))
+        );
+      }
+    }
+
+    const dish = await Dish.findByIdAndUpdate(id, payload, { new: true, runValidators: true });
     if (!dish) return NextResponse.json({ success: false, error: 'Không tìm thấy món ăn' }, { status: 404 });
     return NextResponse.json({ success: true, data: dish });
   } catch (error) {

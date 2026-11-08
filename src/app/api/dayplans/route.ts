@@ -37,7 +37,7 @@ export async function GET(request: NextRequest) {
   }
 }
 
-// POST /api/dayplans - tạo hoặc cập nhật kế hoạch ngày
+// POST /api/dayplans - tạo hoặc cập nhật kế hoạch ngày (Admin có thể lên thực đơn cho bất kỳ User nào)
 export async function POST(request: NextRequest) {
   try {
     await dbConnect();
@@ -45,9 +45,12 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { date, weekKey, dayOfWeek, dietType, selections } = body;
 
-    const targetUserId = currentUser ? currentUser._id.toString() : (body.userId || 'guest');
+    const isAdmin = currentUser?.role === 'admin';
+    const targetUserId = isAdmin && body.userId
+      ? body.userId
+      : (currentUser ? currentUser._id.toString() : (body.userId || 'guest'));
 
-    // Kiểm tra ngày: nếu ngày trong quá khứ so với hôm nay (bắt đầu ngày) thì không cho chỉnh sửa
+    // Kiểm tra ngày: nếu ngày trong quá khứ so với hôm nay (bắt đầu ngày) thì không cho chỉnh sửa (áp dụng cho user thường)
     const planDate = new Date(date);
     const today = new Date();
     today.setHours(0, 0, 0, 0);
@@ -60,19 +63,19 @@ export async function POST(request: NextRequest) {
     const existing = await DayPlan.findOne({ userId: targetUserId, date: planDate });
 
     if (existing) {
-      if (existing.isLocked || isPastDay) {
+      if (!isAdmin && (existing.isLocked || isPastDay)) {
         return NextResponse.json(
           { success: false, error: 'Ngày này đã kết thúc, không thể chỉnh sửa thực đơn đã chọn.' },
           { status: 403 }
         );
       }
       existing.selections = selections;
-      existing.dietType = dietType;
+      if (dietType) existing.dietType = dietType;
       await existing.save();
       return NextResponse.json({ success: true, data: existing });
     }
 
-    if (isPastDay) {
+    if (!isAdmin && isPastDay) {
       return NextResponse.json(
         { success: false, error: 'Không thể thêm hoặc chọn thực đơn cho ngày trong quá khứ.' },
         { status: 403 }
@@ -84,7 +87,7 @@ export async function POST(request: NextRequest) {
       date: planDate,
       weekKey,
       dayOfWeek,
-      dietType,
+      dietType: dietType || '1000kcal',
       selections,
       isLocked: false,
     });

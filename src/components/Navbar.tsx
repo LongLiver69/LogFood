@@ -14,6 +14,7 @@ import {
   Settings,
   ChevronDown,
   Check,
+  Activity,
 } from 'lucide-react';
 import { UserProfile } from '@/types';
 
@@ -79,6 +80,16 @@ export default function Navbar({
 
           {currentUser ? (
             <div className="flex items-center gap-2 relative">
+              {/* Link to Body Metrics */}
+              <Link
+                href="/body-metrics"
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs bg-cyan-500/10 hover:bg-cyan-500/20 border border-cyan-500/30 transition-all text-cyan-300 font-medium"
+                title="Theo dõi các chỉ số cơ thể qua các tuần"
+              >
+                <Activity size={14} className="text-cyan-400" />
+                <span className="hidden sm:inline">Chỉ số cơ thể</span>
+              </Link>
+
               {/* Quick Health Pill for regular members */}
               {currentUser.role !== 'admin' && (
                 <button
@@ -139,6 +150,15 @@ export default function Navbar({
                         </span>
                       </div>
                     </div>
+
+                    <Link
+                      href="/body-metrics"
+                      onClick={() => setShowUserMenu(false)}
+                      className="w-full flex items-center gap-2 px-3 py-2 text-xs rounded-xl text-cyan-300 hover:text-white hover:bg-white/10 transition-all font-semibold"
+                    >
+                      <Activity size={14} className="text-cyan-400" />
+                      <span>Theo dõi chỉ số cơ thể</span>
+                    </Link>
 
                     <button
                       onClick={() => {

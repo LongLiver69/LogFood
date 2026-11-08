@@ -3,12 +3,12 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { startOfWeek, addDays, getWeek, getYear, format } from 'date-fns';
+import { startOfWeek, addDays, getWeek, getYear } from 'date-fns';
 import { Shield, Settings, UserPlus, ArrowRight } from 'lucide-react';
-import { Dish, DayPlan, MealSelection, UserProfile } from '@/types';
+import { DayPlan, UserProfile } from '@/types';
 import Navbar from '@/components/Navbar';
 import GuestHero from '@/components/GuestHero';
-import WeeklyPlanner from '@/components/WeeklyPlanner';
+import UserDailyMenu from '@/components/UserDailyMenu';
 import AuthModal from '@/components/AuthModal';
 import ProfileModal from '@/components/ProfileModal';
 import ChangePasswordModal from '@/components/ChangePasswordModal';
@@ -35,14 +35,10 @@ export default function HomePage() {
   // Planner State
   const [currentWeekStart, setCurrentWeekStart] = useState<Date | null>(null);
   const [dietType, setDietType] = useState<'1000kcal' | '1200kcal'>('1000kcal');
-  const [dishes, setDishes] = useState<Record<string, Dish[]>>({});
   const [dayPlans, setDayPlans] = useState<DayPlan[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [isSaving, setIsSaving] = useState(false);
-  const [saveMessage, setSaveMessage] = useState('');
 
-  // Bộ nhớ đệm Client-side để chuyển tuần và chuyển chế độ ăn tức thì (0ms)
-  const dishesCacheRef = useRef<Record<string, Record<string, Dish[]>>>({});
+  // Client-side cache for day plans
   const dayPlansCacheRef = useRef<Record<string, DayPlan[]>>({});
 
   // Set week start on client
@@ -92,39 +88,6 @@ export default function HomePage() {
     }
   }, [currentUser, router]);
 
-  // Load dishes for current diet type with client-side caching
-  const loadDishes = useCallback(async () => {
-    if (!currentUser || currentUser.role === 'admin') return;
-
-    if (dishesCacheRef.current[dietType]) {
-      setDishes(dishesCacheRef.current[dietType]);
-      return;
-    }
-
-    try {
-      const res = await fetch(`/api/dishes?dietType=${dietType}`);
-      const data = await res.json();
-      if (data.success) {
-        const grouped: Record<string, Dish[]> = {};
-        data.data.forEach((d: Dish) => {
-          if (!grouped[d.meal]) grouped[d.meal] = [];
-          grouped[d.meal].push(d);
-        });
-        dishesCacheRef.current[dietType] = grouped;
-        setDishes(grouped);
-      }
-    } catch (err) {
-      console.error('Failed to load dishes', err);
-    }
-  }, [dietType, currentUser]);
-
-  // Load dishes only when dietType or currentUser changes
-  useEffect(() => {
-    if (currentUser && currentUser.role !== 'admin') {
-      loadDishes();
-    }
-  }, [currentUser, dietType, loadDishes]);
-
   // Load day plans for current week & current regular user with client-side caching
   const loadDayPlans = useCallback(async (forceRefresh = false) => {
     if (!currentUser || currentUser.role === 'admin' || !weekKey) return;
@@ -158,52 +121,12 @@ export default function HomePage() {
     }
   }, [currentUser, weekKey, loadDayPlans]);
 
-  // Handle dish selection in day
-  const handleUpdateSelections = async (date: Date, selections: MealSelection[]) => {
-    if (!currentUser) {
-      setAuthModalMode('login');
-      setShowAuthModal(true);
-      return;
-    }
-
-    setIsSaving(true);
-    try {
-      const dateStr = format(date, 'yyyy-MM-dd');
-      const res = await fetch('/api/dayplans', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          userId: currentUser._id,
-          date: dateStr,
-          weekKey,
-          dayOfWeek: date.getDay(),
-          dietType,
-          selections,
-        }),
-      });
-      const data = await res.json();
-      if (data.success) {
-        await loadDayPlans(true);
-        setSaveMessage('Đã lưu thực đơn!');
-        setTimeout(() => setSaveMessage(''), 2000);
-      } else {
-        alert(data.error || 'Không thể lưu');
-      }
-    } catch (err) {
-      console.error('Failed to save', err);
-    } finally {
-      setIsSaving(false);
-    }
-  };
-
   const handleLogout = async () => {
     try {
       await fetch('/api/auth/logout', { method: 'POST' });
-      dishesCacheRef.current = {};
       dayPlansCacheRef.current = {};
       setCurrentUser(null);
       setDayPlans([]);
-      setDishes({});
     } catch (err) {
       console.error('Logout error', err);
     }
@@ -223,8 +146,6 @@ export default function HomePage() {
       <Navbar
         currentUser={currentUser}
         dietType={dietType}
-        saveMessage={saveMessage}
-        isSaving={isSaving}
         onOpenProfile={() => setShowProfileModal(true)}
         onOpenChangePassword={() => setShowChangePasswordModal(true)}
         onOpenLogin={() => {
@@ -253,7 +174,7 @@ export default function HomePage() {
             }}
           />
         ) : currentUser.role === 'admin' ? (
-          /* Đối với quản trị viên: KHÔNG có màn danh sách chọn món */
+          /* Đối với quản trị viên: Chuyển hướng tới trang Quản Trị */
           <div className="max-w-2xl mx-auto py-12 px-4 text-center animate-fade-in">
             <div className="glass-card p-8 sm:p-10 border-purple-500/20">
               <div className="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-5 bg-purple-500/10 text-purple-400 border border-purple-500/20">
@@ -263,7 +184,7 @@ export default function HomePage() {
                 Xin chào Quản trị viên, {currentUser.fullName}!
               </h2>
               <p className="text-sm text-slate-400 mb-8 max-w-lg mx-auto leading-relaxed">
-                Tài khoản quản trị viên không có màn hình tự chọn món ăn. Vui lòng chuyển tới bảng điều khiển Quản Trị để quản lý thực đơn dinh dưỡng và theo dõi chi tiết bữa ăn của các thành viên.
+                Tài khoản quản trị viên không có màn hình tự chọn món ăn. Vui lòng chuyển tới bảng điều khiển Quản Trị để quản lý thực đơn dinh dưỡng và lên thực đơn hàng ngày cho các thành viên.
               </p>
               <div className="flex flex-wrap items-center justify-center gap-3">
                 <Link
@@ -285,25 +206,17 @@ export default function HomePage() {
             </div>
           </div>
         ) : (
-          /* Khi là thành viên đã đăng nhập: Hiển thị bảng kế hoạch thực đơn theo tuần với tính năng mở chọn trước theo tuần */
-          <WeeklyPlanner
+          /* Khi là thành viên đã đăng nhập: Giao diện trực quan "Hôm nay ăn gì?", định lượng, nguyên liệu và hướng dẫn */
+          <UserDailyMenu
             currentWeekStart={currentWeekStart}
             onPrevWeek={() => currentWeekStart && setCurrentWeekStart(addDays(currentWeekStart, -7))}
             onNextWeek={() => currentWeekStart && setCurrentWeekStart(addDays(currentWeekStart, 7))}
-            onSelectWeekStart={(date) => setCurrentWeekStart(date)}
             weekDays={weekDays}
             weekKey={weekKey}
             dietType={dietType}
-            dishes={dishes}
             dayPlans={dayPlans}
             isLoading={isLoading}
             currentUser={currentUser}
-            onUpdateSelections={handleUpdateSelections}
-            onOpenProfile={() => setShowProfileModal(true)}
-            onRequireAuth={() => {
-              setAuthModalMode('login');
-              setShowAuthModal(true);
-            }}
           />
         )}
       </main>

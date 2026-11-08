@@ -6,16 +6,18 @@ import { getUserFromRequest } from '@/lib/auth';
 
 export const dynamic = 'force-dynamic';
 
-// GET /api/dishes - lấy danh sách món ăn (cả admin lẫn user đều được xem)
+// GET /api/dishes - lấy danh sách món ăn (hỗ trợ lọc theo meal, dietType, category)
 export async function GET(request: NextRequest) {
   try {
     await dbConnect();
     const { searchParams } = new URL(request.url);
     const meal = searchParams.get('meal');
     const dietType = searchParams.get('dietType') || '1000kcal';
+    const category = searchParams.get('category'); // 'family' | 'eatclean'
 
     const filter: Record<string, string> = { dietType };
     if (meal) filter.meal = meal;
+    if (category) filter.category = category;
 
     const dishes = await Dish.find(filter).sort({ name: 1 }).lean();
     return NextResponse.json(
@@ -60,7 +62,20 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: true, message: 'Đã cập nhật lại toàn bộ thực đơn mẫu' });
     }
 
-    const dish = await Dish.create(body);
+    // Tự động chuẩn hóa ingredients và dishComponents nếu có
+    const payload = { ...body };
+    if (payload.dishComponents && Array.isArray(payload.dishComponents)) {
+      if (!payload.ingredients || payload.ingredients.length === 0) {
+        payload.ingredients = payload.dishComponents.flatMap((c: any) =>
+          (c.ingredients || []).map((ing: any) => ({
+            ...ing,
+            dishComponent: c.dishName,
+          }))
+        );
+      }
+    }
+
+    const dish = await Dish.create(payload);
     return NextResponse.json({ success: true, data: dish }, { status: 201 });
   } catch (error) {
     return NextResponse.json({ success: false, error: String(error) }, { status: 500 });
